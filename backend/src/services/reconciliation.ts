@@ -123,15 +123,17 @@ export const matchTransactions = (dadosBanco: Transacao[], dadosContabilidade: T
                 melhorMatch = candidatos[0];
             }
 
-            id: `${txBanco.id}||${melhorMatch.tx.id}`, // Use separator that won't conflict with UUIDs easily, or better yet, rely on explicit IDs
+            reconciliados.push({
+                id: `${txBanco.id}||${melhorMatch.tx.id}`,
                 bankId: txBanco.id,
-                    phcId: melhorMatch.tx.id,
-                        valor: txBanco.valor,
-                            dataBanco: txBanco.data,
-                                dataContabilidade: melhorMatch.tx.data,
-                                    descBanco: txBanco.descricao,
-                                        descContabilidade: melhorMatch.tx.descricao,
-                                            tratado: txBanco.tratado && melhorMatch.tx.tratado // Consider treated only if both are treated
+                phcId: melhorMatch.tx.id,
+                valor: txBanco.valor,
+                dataBanco: txBanco.data,
+                dataContabilidade: melhorMatch.tx.data,
+                descBanco: txBanco.descricao,
+                descContabilidade: melhorMatch.tx.descricao,
+                tratado: txBanco.tratado && melhorMatch.tx.tratado
+            });
 
             // Remove matched item from pool using original reference/index
             const indexReal = poolContabilidade.indexOf(melhorMatch.tx);
