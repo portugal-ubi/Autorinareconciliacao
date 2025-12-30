@@ -1,5 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { BarChart, Search, Save, CheckSquare, Square, Filter, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { BarChart, Search, Save, CheckSquare, Square, Filter, ChevronLeft, ChevronRight, Eye, EyeOff, FileSpreadsheet, FileText } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { ResultadoReconciliacao, Transacao, TransacaoCorrespondida } from '../types';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
@@ -143,6 +146,109 @@ export const AnalysisPage: React.FC = () => {
         return !!item.tratado;
     };
 
+    const handleExportExcel = () => {
+        if (dadosCompletosFiltrados.length === 0) {
+            alert("Não existem dados para exportar.");
+            return;
+        }
+
+        const dataToExport = dadosCompletosFiltrados.map((item: any) => {
+            const base = {
+                Valor: item.valor,
+                Estado: getTratadoStatus(item) ? 'Tratado' : 'Não Tratado'
+            };
+
+            if (abaAtiva === 'correspondidos') {
+                return {
+                    ...base,
+                    'Data Banco': item.dataBanco,
+                    'Desc Banco': item.descBanco,
+                    'Desc PHC': item.descContabilidade
+                };
+            } else {
+                return {
+                    ...base,
+                    Data: item.data,
+                    Descricao: item.descricao,
+                    Notas: getNota(item)
+                };
+            }
+        });
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Dados");
+        XLSX.writeFile(wb, `Analise_${abaAtiva}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
+    const handleExportPDF = () => {
+        if (dadosCompletosFiltrados.length === 0) {
+            alert("Não existem dados para exportar.");
+            return;
+        }
+
+        const doc = new jsPDF();
+
+        // Header "Auto Rina" - Blue
+        doc.setFontSize(22);
+        doc.setTextColor(37, 99, 235); // Blue #2563eb
+        doc.setFont("helvetica", "bold");
+        doc.text("Auto Rina", 14, 20);
+
+        // Subheader
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0); // Black
+        doc.text("Análise de Reconciliação", 14, 30);
+
+        // Meta info
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        const tabName = abaAtiva === 'correspondidos' ? 'Correspondidos' :
+            abaAtiva === 'banco' ? 'Falta Banco' : 'Falta PHC';
+
+        doc.text(`Tipo: ${tabName}`, 14, 40);
+        doc.text(`Data de Emissão: ${new Date().toLocaleString('pt-PT')}`, 14, 45);
+
+        // Line
+        doc.setDrawColor(200, 200, 200);
+        doc.line(14, 48, 196, 48);
+
+        // Table
+        const head = [];
+        const body = [];
+
+        if (abaAtiva === 'correspondidos') {
+            head.push(['Data', 'Desc Banco', 'Desc PHC', 'Valor', 'Estado']);
+            body.push(...dadosCompletosFiltrados.map(item => [
+                item.dataBanco,
+                item.descBanco,
+                item.descContabilidade,
+                formatarMoeda(item.valor),
+                getTratadoStatus(item) ? 'Tratado' : ''
+            ]));
+        } else {
+            head.push(['Data', 'Descrição', 'Valor', 'Notas', 'Estado']);
+            body.push(...dadosCompletosFiltrados.map(item => [
+                item.data,
+                item.descricao,
+                formatarMoeda(item.valor),
+                getNota(item),
+                getTratadoStatus(item) ? 'Tratado' : ''
+            ]));
+        }
+
+        autoTable(doc, {
+            startY: 55,
+            head: head,
+            body: body,
+            headStyles: { fillColor: [37, 99, 235] }, // Blue header
+            styles: { fontSize: 8 },
+            alternateRowStyles: { fillColor: [245, 247, 250] }
+        });
+
+        doc.save(`Analise_${abaAtiva}_${new Date().toISOString().split('T')[0]}.pdf`);
+    };
+
     const formatarMoeda = (val: number) =>
         new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(val);
 
@@ -208,11 +314,19 @@ export const AnalysisPage: React.FC = () => {
                     <BarChart className="w-8 h-8 text-[#e82127]" />
                     Análise Global
                 </h2>
-                {hasChanges && (
-                    <Button onClick={handleSave} disabled={loading} icon={<Save size={18} />} className="animate-in fade-in zoom-in duration-200">
-                        Guardar Alterações
+                <div className="flex gap-2">
+                    <Button onClick={handleExportExcel} variant="secondary" icon={<FileSpreadsheet size={18} />}>
+                        Excel
                     </Button>
-                )}
+                    <Button onClick={handleExportPDF} variant="secondary" icon={<FileText size={18} />}>
+                        PDF
+                    </Button>
+                    {hasChanges && (
+                        <Button onClick={handleSave} disabled={loading} icon={<Save size={18} />} className="animate-in fade-in zoom-in duration-200">
+                            Guardar Alterações
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-white/10 flex flex-wrap gap-4 items-end">
