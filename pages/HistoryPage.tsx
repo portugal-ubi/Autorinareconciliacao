@@ -126,8 +126,8 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
                       </button>
                     </td>
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                      <div>#{item.id.substring(0, 8)}</div>
-                      {item.nome && <div className="text-xs text-gray-500">{item.nome}</div>}
+                      <div>{item.nome ? item.nome : <span className="text-gray-500 italic">Sem nome</span>}</div>
+                      <div className="text-xs text-gray-500">#{item.id.substring(0, 8)}</div>
                     </td>
                     <td className="px-6 py-4">
                       {new Date(item.carimboTempo).toLocaleDateString('pt-PT', {

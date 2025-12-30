@@ -21,17 +21,17 @@ const dadosGrafico = [
   { nome: 'Dom', correspondidos: 3490, erro: 4300 },
 ];
 
-export const DashboardPage: React.FC<DashboardPageProps> = ({ 
-  onVerNovaRecon, 
+export const DashboardPage: React.FC<DashboardPageProps> = ({
+  onVerNovaRecon,
   historicoRecente,
   onSelecionarHistorico
 }) => {
-  
+
   const calcularTempoRelativo = (isoString: string) => {
     const data = new Date(isoString);
     const agora = new Date();
     const difHoras = Math.abs(agora.getTime() - data.getTime()) / 36e5;
-    
+
     if (difHoras < 24) {
       if (difHoras < 1) return 'há menos de 1h';
       return `há ${Math.floor(difHoras)}h`;
@@ -106,13 +106,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               <AreaChart data={dadosGrafico}>
                 <defs>
                   <linearGradient id="corCorrespondidos" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#e82127" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#e82127" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#e82127" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#e82127" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="nome" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: 'var(--tw-colors-gray-900)', border: 'none', borderRadius: '4px' }}
                   itemStyle={{ color: '#fff' }}
                 />
@@ -126,8 +126,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           <div className="space-y-2">
             {historicoRecente.length > 0 ? (
               historicoRecente.map((item) => (
-                <div 
-                  key={item.id} 
+                <div
+                  key={item.id}
                   onClick={() => onSelecionarHistorico(item)}
                   className="flex items-center justify-between p-3 hover:bg-gray-100 dark:hover:bg-white/5 rounded-md transition-all cursor-pointer border border-transparent hover:border-gray-200 dark:hover:border-white/10 group"
                 >
@@ -137,8 +137,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     </div>
                     <div>
                       <p className="text-sm text-gray-900 dark:text-white font-medium group-hover:text-[#e82127] transition-colors">
-                        Reconciliação #{item.id.substring(0, 6)}
+                        {item.nome ? item.nome : `Reconciliação #${item.id.substring(0, 6)}`}
                       </p>
+                      {item.nome && <p className="text-xs text-gray-500">#{item.id.substring(0, 8)}</p>}
                       <p className="text-xs text-gray-500">
                         {item.resumo.totalReconciliado} correspondidos
                       </p>

@@ -5,6 +5,7 @@ import multer from 'multer';
 import { DataSource } from 'typeorm';
 import { processReconciliation } from './services/reconciliation';
 import { Reconciliation } from './entities/Reconciliation';
+import { User } from './entities/User';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -22,7 +23,7 @@ export const AppDataSource = new DataSource({
     database: process.env.DB_NAME || "recon_db",
     synchronize: true, // Auto-create tables (dev only)
     logging: false,
-    entities: [Reconciliation],
+    entities: [Reconciliation, User],
     subscribers: [],
     migrations: [],
 });
