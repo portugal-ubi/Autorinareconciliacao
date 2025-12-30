@@ -108,8 +108,6 @@ export const AnalysisPage: React.FC = () => {
     const toggleTratado = (id: string, currentVal: boolean) => {
         setAlteracoes(prev => {
             const newState = { ...prev };
-            // If it's in changes, toggle it back to original (remove key) or new value
-            // Simpler: just set the new value. If it matches original, we could remove logic but keeping it simple is fine.
             if (newState[id] === !currentVal) {
                 delete newState[id]; // Back to original
             } else {
@@ -117,6 +115,18 @@ export const AnalysisPage: React.FC = () => {
             }
             return newState;
         });
+    };
+
+    const handleNoteChange = (id: string, val: string) => {
+        setNotas(prev => ({
+            ...prev,
+            [id]: val
+        }));
+    };
+
+    const getNota = (item: any) => {
+        if (notas.hasOwnProperty(item.id)) return notas[item.id];
+        return item.notas || '';
     };
 
     const getTratadoStatus = (item: any) => {
