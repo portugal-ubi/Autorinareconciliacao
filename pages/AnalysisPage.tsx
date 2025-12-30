@@ -44,31 +44,35 @@ export const AnalysisPage: React.FC = () => {
     const handleSave = async () => {
         if (!resultado) return;
 
-        const idsToUpdateBanco: string[] = [];
-        const idsToUpdatePhc: string[] = [];
-        const status = true; // For now we only assume checking boxes = setting to true, but maybe we want unchecking?
-        // Actually, let's support both.
-
-        // We need to know which type each ID belongs to.
-        // Reconciled: Items have ID. They exist in both? treating a matched item means treating both? 
-        // Usually global analysis treats deviations (Bank Only / PHC Only).
-        // If we treat a "Reconciled" one, does it matter? Maybe just for visuals.
-        // Let's focus on Bank Only and PHC Only as those are the "Problems".
-
-        // Let's iterate changes
         const updates: { type: 'bank' | 'phc', id: string, val: boolean }[] = [];
 
         Object.entries(alteracoes).forEach(([id, val]) => {
-            // Find where this ID is to determine type
-            const isBank = resultado.apenasBanco.find(t => t.id === id);
-            const isPhc = resultado.apenasContabilidade.find(t => t.id === id);
+            // Check Reconciliados
+            const isReconciliado = resultado.reconciliados.find(t => t.id === id);
+            if (isReconciliado) {
+                // Determine if we need to update bank, phc or both.
+                // If the user checks the box (val=true), we treat BOTH.
+                // If uncheck, untreat BOTH.
+                updates.push({ type: 'bank', id: isReconciliado.bankId, val: val as boolean });
+                updates.push({ type: 'phc', id: isReconciliado.phcId, val: val as boolean });
+                return;
+            }
 
-            if (isBank) updates.push({ type: 'bank', id, val: val as boolean });
-            if (isPhc) updates.push({ type: 'phc', id, val: val as boolean });
+            // Check Apenas Banco
+            const isBank = resultado.apenasBanco.find(t => t.id === id);
+            if (isBank) {
+                updates.push({ type: 'bank', id, val: val as boolean });
+                return;
+            }
+
+            // Check Apenas PHC
+            const isPhc = resultado.apenasContabilidade.find(t => t.id === id);
+            if (isPhc) {
+                updates.push({ type: 'phc', id, val: val as boolean });
+                return;
+            }
         });
 
-        // Group by type and value is tricky if we mix true/false.
-        // Let's simpler approach: separate lists for setting TRUE and FALSE
         const bankTrue = updates.filter(u => u.type === 'bank' && u.val).map(u => u.id);
         const bankFalse = updates.filter(u => u.type === 'bank' && !u.val).map(u => u.id);
         const phcTrue = updates.filter(u => u.type === 'phc' && u.val).map(u => u.id);
@@ -76,19 +80,26 @@ export const AnalysisPage: React.FC = () => {
 
         setLoading(true);
         try {
-            await Promise.all([
-                bankTrue.length > 0 && fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'bank', ids: bankTrue, tratado: true }) }),
-                bankFalse.length > 0 && fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'bank', ids: bankFalse, tratado: false }) }),
-                phcTrue.length > 0 && fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'phc', ids: phcTrue, tratado: true }) }),
-                phcFalse.length > 0 && fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'phc', ids: phcFalse, tratado: false }) }),
-            ]);
+            const requests = [];
+            if (bankTrue.length > 0) requests.push(fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'bank', ids: bankTrue, tratado: true }) }));
+            if (bankFalse.length > 0) requests.push(fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'bank', ids: bankFalse, tratado: false }) }));
+            if (phcTrue.length > 0) requests.push(fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'phc', ids: phcTrue, tratado: true }) }));
+            if (phcFalse.length > 0) requests.push(fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'phc', ids: phcFalse, tratado: false }) }));
+
+            const responses = await Promise.all(requests);
+
+            // Check for errors
+            for (const res of responses) {
+                if (!res.ok) throw new Error(`Server returned ${res.status}`);
+            }
 
             // Refresh data
             await handleAnalyze();
             alert("Alterações guardadas com sucesso!");
         } catch (error) {
             console.error(error);
-            alert("Erro ao guardar alterações.");
+            alert("Erro ao guardar alterações. Verifique a consola.");
+        } finally {
             setLoading(false);
         }
     };
@@ -236,7 +247,7 @@ export const AnalysisPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <Card className="flex flex-col h-[calc(100vh-250px)] min-h-[500px]">
+                    <Card className="flex flex-col min-h-[500px]">
                         {/* Tabs & Toolbar */}
                         <div className="flex flex-col xl:flex-row justify-between items-center border-b border-gray-200 dark:border-white/10 p-2 gap-4">
                             <div className="flex gap-2 bg-gray-100 dark:bg-black/20 p-1 rounded-lg overflow-x-auto max-w-full">

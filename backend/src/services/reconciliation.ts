@@ -11,6 +11,8 @@ interface Transacao {
 
 interface TransacaoCorrespondida {
     id: string;
+    bankId: string;
+    phcId: string;
     valor: number;
     dataBanco: string;
     dataContabilidade: string;
@@ -121,15 +123,15 @@ export const matchTransactions = (dadosBanco: Transacao[], dadosContabilidade: T
                 melhorMatch = candidatos[0];
             }
 
-            reconciliados.push({
-                id: `${txBanco.id}-${melhorMatch.tx.id}`,
-                valor: txBanco.valor,
-                dataBanco: txBanco.data,
-                dataContabilidade: melhorMatch.tx.data,
-                descBanco: txBanco.descricao,
-                descContabilidade: melhorMatch.tx.descricao,
-                tratado: false
-            });
+            id: `${txBanco.id}||${melhorMatch.tx.id}`, // Use separator that won't conflict with UUIDs easily, or better yet, rely on explicit IDs
+                bankId: txBanco.id,
+                    phcId: melhorMatch.tx.id,
+                        valor: txBanco.valor,
+                            dataBanco: txBanco.data,
+                                dataContabilidade: melhorMatch.tx.data,
+                                    descBanco: txBanco.descricao,
+                                        descContabilidade: melhorMatch.tx.descricao,
+                                            tratado: txBanco.tratado && melhorMatch.tx.tratado // Consider treated only if both are treated
 
             // Remove matched item from pool using original reference/index
             const indexReal = poolContabilidade.indexOf(melhorMatch.tx);
