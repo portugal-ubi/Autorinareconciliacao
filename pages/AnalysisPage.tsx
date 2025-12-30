@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { BarChart, Search, Save, CheckSquare, Square, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BarChart, Search, Save, CheckSquare, Square, Filter, ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { ResultadoReconciliacao, Transacao, TransacaoCorrespondida } from '../types';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
@@ -24,6 +24,7 @@ export const AnalysisPage: React.FC = () => {
     // UI States
     const [abaAtiva, setAbaAtiva] = useState<'correspondidos' | 'banco' | 'contabilidade'>('correspondidos');
     const [termoPesquisa, setTermoPesquisa] = useState('');
+    const [mostrarTratados, setMostrarTratados] = useState(true);
 
     const handleAnalyze = async () => {
         setLoading(true);
@@ -147,9 +148,12 @@ export const AnalysisPage: React.FC = () => {
                 (item.descContabilidade || '').toLowerCase().includes(termo) ||
                 item.valor.toString().includes(termo);
 
+            const tratado = getTratadoStatus(item);
+            if (!mostrarTratados && tratado) return false;
+
             return searchMatch;
         });
-    }, [resultado, abaAtiva, termoPesquisa]);
+    }, [resultado, abaAtiva, termoPesquisa, mostrarTratados, alteracoes]);
 
     // Derived State for Pagination
     const totalItems = dadosCompletosFiltrados.length;
@@ -312,6 +316,15 @@ export const AnalysisPage: React.FC = () => {
                                     <span>{stats.total}</span>
                                     <span className="ml-1">Tratados</span>
                                 </div>
+
+                                <button
+                                    onClick={() => setMostrarTratados(!mostrarTratados)}
+                                    className={`p-1.5 rounded-md border transition-colors flex items-center gap-2 text-sm px-3 ${mostrarTratados ? 'bg-gray-100 dark:bg-white/10 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-white/10' : 'bg-[#e82127]/10 text-[#e82127] border-[#e82127]/20'}`}
+                                    title={mostrarTratados ? "Ocultar Tratados" : "Mostrar Tratados"}
+                                >
+                                    {mostrarTratados ? <Eye size={18} /> : <EyeOff size={18} />}
+                                    <span className="hidden sm:inline">{mostrarTratados ? 'Ocultar Tratados' : 'Mostrar Tratados'}</span>
+                                </button>
 
                                 <div className="relative w-full md:w-64">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
