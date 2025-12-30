@@ -165,37 +165,34 @@ export const transactionService = {
             }
         }
 
-    }
-}
-
-return {
-    missingInDb,
-    extraInDb
-};
+        return {
+            missingInDb,
+            extraInDb
+        };
     },
 
     async importTransactions(type: 'bank' | 'phc', transactions: any[]) {
-    const repo = type === 'bank' ? AppDataSource.getRepository(BankTransaction) : AppDataSource.getRepository(PhcTransaction);
-    let imported = 0;
+        const repo = type === 'bank' ? AppDataSource.getRepository(BankTransaction) : AppDataSource.getRepository(PhcTransaction);
+        let imported = 0;
 
-    for (const t of transactions) {
-        const hash = generateHash(t.data, t.valor, t.descricao);
+        for (const t of transactions) {
+            const hash = generateHash(t.data, t.valor, t.descricao);
 
-        // Double check existence to avoid duplicates if user clicks twice
-        const exists = await repo.findOneBy({ hash });
+            // Double check existence to avoid duplicates if user clicks twice
+            const exists = await repo.findOneBy({ hash });
 
-        if (!exists) {
-            const newTx = type === 'bank' ? new BankTransaction() : new PhcTransaction();
-            newTx.data = t.data;
-            newTx.valor = t.valor;
-            newTx.descricao = t.descricao;
-            newTx.hash = hash;
-            newTx.arquivo_origem = 'Importado via Verificação';
+            if (!exists) {
+                const newTx = type === 'bank' ? new BankTransaction() : new PhcTransaction();
+                newTx.data = t.data;
+                newTx.valor = t.valor;
+                newTx.descricao = t.descricao;
+                newTx.hash = hash;
+                newTx.arquivo_origem = 'Importado via Verificação';
 
-            await repo.save(newTx);
-            imported++;
+                await repo.save(newTx);
+                imported++;
+            }
         }
+        return { imported };
     }
-    return { imported };
-}
 };
