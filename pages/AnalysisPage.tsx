@@ -227,28 +227,55 @@ export const AnalysisPage: React.FC = () => {
             {resultado && (
                 <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
                     {/* Summary Cards */}
+                    {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-green-50 dark:bg-green-900/10 p-6 rounded-lg border border-green-100 dark:border-green-900/30">
-                            <h3 className="text-sm font-bold uppercase tracking-widest text-green-800 dark:text-green-400 mb-2">Reconciliado</h3>
-                            <div className="text-3xl font-bold text-gray-900 dark:text-white">{resultado.resumo.totalReconciliado}</div>
-                            <div className="text-sm font-mono text-gray-500 dark:text-gray-400 mt-1">
-                                {formatarMoeda(resultado.resumo.valorReconciliado)}
-                            </div>
-                        </div>
-                        <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                            <h3 className="text-sm font-bold uppercase tracking-widest text-blue-800 dark:text-blue-400 mb-2">Apenas Banco</h3>
-                            <div className="text-3xl font-bold text-gray-900 dark:text-white">{resultado.resumo.totalApenasBanco}</div>
-                            <div className="text-sm font-mono text-gray-500 dark:text-gray-400 mt-1">
-                                {formatarMoeda(resultado.resumo.valorApenasBanco)}
-                            </div>
-                        </div>
-                        <div className="bg-orange-50 dark:bg-orange-900/10 p-6 rounded-lg border border-orange-100 dark:border-orange-900/30">
-                            <h3 className="text-sm font-bold uppercase tracking-widest text-orange-800 dark:text-orange-400 mb-2">Apenas PHC</h3>
-                            <div className="text-3xl font-bold text-gray-900 dark:text-white">{resultado.resumo.totalApenasContabilidade}</div>
-                            <div className="text-sm font-mono text-gray-500 dark:text-gray-400 mt-1">
-                                {formatarMoeda(resultado.resumo.valorApenasContabilidade)}
-                            </div>
-                        </div>
+                        {(() => {
+                            const countTratados = (list: any[]) => list.filter(item => getTratadoStatus(item)).length;
+
+                            const recTotal = resultado.resumo.totalReconciliado;
+                            const recTratados = countTratados(resultado.reconciliados);
+
+                            const bankTotal = resultado.resumo.totalApenasBanco;
+                            const bankTratados = countTratados(resultado.apenasBanco);
+
+                            const phcTotal = resultado.resumo.totalApenasContabilidade;
+                            const phcTratados = countTratados(resultado.apenasContabilidade);
+
+                            return (
+                                <>
+                                    <div className="bg-green-50 dark:bg-green-900/10 p-6 rounded-lg border border-green-100 dark:border-green-900/30">
+                                        <h3 className="text-sm font-bold uppercase tracking-widest text-green-800 dark:text-green-400 mb-2">Reconciliado</h3>
+                                        <div className="flex items-baseline gap-2">
+                                            <div className="text-3xl font-bold text-gray-900 dark:text-white">{recTotal}</div>
+                                            <div className="text-sm font-medium text-green-600 dark:text-green-400">({recTratados} tratados)</div>
+                                        </div>
+                                        <div className="text-sm font-mono text-gray-500 dark:text-gray-400 mt-1">
+                                            {formatarMoeda(resultado.resumo.valorReconciliado)}
+                                        </div>
+                                    </div>
+                                    <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                                        <h3 className="text-sm font-bold uppercase tracking-widest text-blue-800 dark:text-blue-400 mb-2">Apenas Banco</h3>
+                                        <div className="flex items-baseline gap-2">
+                                            <div className="text-3xl font-bold text-gray-900 dark:text-white">{bankTotal}</div>
+                                            <div className="text-sm font-medium text-blue-600 dark:text-blue-400">({bankTratados} tratados)</div>
+                                        </div>
+                                        <div className="text-sm font-mono text-gray-500 dark:text-gray-400 mt-1">
+                                            {formatarMoeda(resultado.resumo.valorApenasBanco)}
+                                        </div>
+                                    </div>
+                                    <div className="bg-orange-50 dark:bg-orange-900/10 p-6 rounded-lg border border-orange-100 dark:border-orange-900/30">
+                                        <h3 className="text-sm font-bold uppercase tracking-widest text-orange-800 dark:text-orange-400 mb-2">Apenas PHC</h3>
+                                        <div className="flex items-baseline gap-2">
+                                            <div className="text-3xl font-bold text-gray-900 dark:text-white">{phcTotal}</div>
+                                            <div className="text-sm font-medium text-orange-600 dark:text-orange-400">({phcTratados} tratados)</div>
+                                        </div>
+                                        <div className="text-sm font-mono text-gray-500 dark:text-gray-400 mt-1">
+                                            {formatarMoeda(resultado.resumo.valorApenasContabilidade)}
+                                        </div>
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
 
                     <Card className="flex flex-col min-h-[500px]">
