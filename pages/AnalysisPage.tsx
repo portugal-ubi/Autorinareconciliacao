@@ -243,8 +243,33 @@ export const AnalysisPage: React.FC = () => {
             body: body,
             headStyles: { fillColor: [37, 99, 235] }, // Blue header
             styles: { fontSize: 8 },
-            alternateRowStyles: { fillColor: [245, 247, 250] }
+            alternateRowStyles: { fillColor: [245, 247, 250] },
+            didDrawPage: (data) => {
+                // Footer
+                const pageSize = doc.internal.pageSize;
+                const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
+                doc.setFontSize(8);
+                doc.setTextColor(100);
+                const text = `Página ${data.pageNumber}`;
+                const textWidth = doc.getTextWidth(text);
+                doc.text(text, pageSize.width - 20 - textWidth, pageHeight - 10);
+            }
         });
+
+        // Add total pages if needed, but simple page number is often enough.
+        // For "Page X of Y", we need to know total pages which is tricky inside the loop during generation unless we use the final callback.
+        // Let's optimize to just "Página X" as it's simpler and robust, or do the "X of Y" post-processing.
+
+        const totalPages = doc.internal.pages.length - 1;
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(128, 128, 128);
+            const text = `Página ${i} de ${totalPages}`;
+            const pageSize = doc.internal.pageSize;
+            const pageHeight = pageSize.height;
+            doc.text(text, pageSize.width - 14 - doc.getTextWidth(text), pageHeight - 10);
+        }
 
         doc.save(`Analise_${abaAtiva}_${new Date().toISOString().split('T')[0]}.pdf`);
     };
