@@ -12,8 +12,9 @@ services:
 
   backend:
     build: ./backend
-    ports:
-      - "3001:3000"
+    # No ports exposed to host, accesses via internal network only
+    expose:
+      - "3000"
     environment:
       - DB_HOST=db
       - DB_USER=user
