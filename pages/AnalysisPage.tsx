@@ -1,14 +1,21 @@
-import React, { useState, useMemo } from 'react';
-import { BarChart, Search, Download, Square, CheckSquare } from 'lucide-react';
-import { ResultadoReconciliacao } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { BarChart, Search, Save, CheckSquare, Square, Filter } from 'lucide-react';
+import { ResultadoReconciliacao, Transacao, TransacaoCorrespondida } from '../types';
 import { Card } from '../components/Card';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { Button } from '../components/Button';
+
+// Helper to get ID helper
+const getId = (item: any) => item.id;
 
 export const AnalysisPage: React.FC = () => {
     const [startDate, setStartDate] = useState(new Date().getFullYear() + '-01-01');
     const [endDate, setEndDate] = useState(new Date().getFullYear() + '-12-31');
     const [loading, setLoading] = useState(false);
     const [resultado, setResultado] = useState<ResultadoReconciliacao | null>(null);
+
+    // Local changes state: mapping ID -> boolean (true = tratado, false = nao tratado)
+    // Only stores changes that differ from original
+    const [alteracoes, setAlteracoes] = useState<Record<string, boolean>>({});
 
     // UI States
     const [abaAtiva, setAbaAtiva] = useState<'correspondidos' | 'banco' | 'contabilidade'>('correspondidos');
@@ -20,6 +27,7 @@ export const AnalysisPage: React.FC = () => {
             const res = await fetch(`/api/reconciliation/global?start=${startDate}&end=${endDate}`);
             const data = await res.json();
             setResultado(data);
+            setAlteracoes({}); // Reset changes on new analysis
         } catch (error) {
             console.error("Error analyzing:", error);
             alert("Erro ao gerar análise.");
@@ -28,50 +36,131 @@ export const AnalysisPage: React.FC = () => {
         }
     };
 
+    const handleSave = async () => {
+        if (!resultado) return;
+
+        const idsToUpdateBanco: string[] = [];
+        const idsToUpdatePhc: string[] = [];
+        const status = true; // For now we only assume checking boxes = setting to true, but maybe we want unchecking?
+        // Actually, let's support both.
+
+        // We need to know which type each ID belongs to.
+        // Reconciled: Items have ID. They exist in both? treating a matched item means treating both? 
+        // Usually global analysis treats deviations (Bank Only / PHC Only).
+        // If we treat a "Reconciled" one, does it matter? Maybe just for visuals.
+        // Let's focus on Bank Only and PHC Only as those are the "Problems".
+
+        // Let's iterate changes
+        const updates: { type: 'bank' | 'phc', id: string, val: boolean }[] = [];
+
+        Object.entries(alteracoes).forEach(([id, val]) => {
+            // Find where this ID is to determine type
+            const isBank = resultado.apenasBanco.find(t => t.id === id);
+            const isPhc = resultado.apenasContabilidade.find(t => t.id === id);
+
+            if (isBank) updates.push({ type: 'bank', id, val });
+            if (isPhc) updates.push({ type: 'phc', id, val });
+        });
+
+        // Group by type and value is tricky if we mix true/false.
+        // Let's simpler approach: separate lists for setting TRUE and FALSE
+        const bankTrue = updates.filter(u => u.type === 'bank' && u.val).map(u => u.id);
+        const bankFalse = updates.filter(u => u.type === 'bank' && !u.val).map(u => u.id);
+        const phcTrue = updates.filter(u => u.type === 'phc' && u.val).map(u => u.id);
+        const phcFalse = updates.filter(u => u.type === 'phc' && !u.val).map(u => u.id);
+
+        setLoading(true);
+        try {
+            await Promise.all([
+                bankTrue.length > 0 && fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'bank', ids: bankTrue, tratado: true }) }),
+                bankFalse.length > 0 && fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'bank', ids: bankFalse, tratado: false }) }),
+                phcTrue.length > 0 && fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'phc', ids: phcTrue, tratado: true }) }),
+                phcFalse.length > 0 && fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'phc', ids: phcFalse, tratado: false }) }),
+            ]);
+
+            // Refresh data
+            await handleAnalyze();
+            alert("Alterações guardadas com sucesso!");
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao guardar alterações.");
+            setLoading(false);
+        }
+    };
+
+    const toggleTratado = (id: string, currentVal: boolean) => {
+        setAlteracoes(prev => {
+            const newState = { ...prev };
+            // If it's in changes, toggle it back to original (remove key) or new value
+            // Simpler: just set the new value. If it matches original, we could remove logic but keeping it simple is fine.
+            if (newState[id] === !currentVal) {
+                delete newState[id]; // Back to original
+            } else {
+                newState[id] = !currentVal;
+            }
+            return newState;
+        });
+    };
+
+    const getTratadoStatus = (item: any) => {
+        if (alteracoes.hasOwnProperty(item.id)) {
+            return alteracoes[item.id];
+        }
+        return !!item.tratado;
+    };
+
     const formatarMoeda = (val: number) =>
         new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(val);
-
-    const dadosPie = useMemo(() => {
-        if (!resultado) return [];
-        return [
-            { nome: 'Correspondidos', valor: resultado.resumo.totalReconciliado, color: '#10b981' },
-            { nome: 'Apenas Banco', valor: resultado.resumo.totalApenasBanco, color: '#eab308' },
-            { nome: 'Apenas PHC', valor: resultado.resumo.totalApenasContabilidade, color: '#f97316' },
-        ];
-    }, [resultado]);
 
     const dadosFiltrados = useMemo(() => {
         if (!resultado) return [];
         const termo = termoPesquisa.toLowerCase();
+        let list: any[] = [];
 
         if (abaAtiva === 'correspondidos') {
-            return resultado.reconciliados.filter(item =>
-                !termo ||
-                item.descBanco.toLowerCase().includes(termo) ||
-                item.descContabilidade.toLowerCase().includes(termo) ||
-                item.valor.toString().includes(termo)
-            );
+            list = resultado.reconciliados;
         } else if (abaAtiva === 'banco') {
-            return resultado.apenasBanco.filter(item =>
-                !termo ||
-                item.descricao.toLowerCase().includes(termo) ||
-                item.valor.toString().includes(termo)
-            );
+            list = resultado.apenasBanco;
         } else {
-            return resultado.apenasContabilidade.filter(item =>
-                !termo ||
-                item.descricao.toLowerCase().includes(termo) ||
-                item.valor.toString().includes(termo)
-            );
+            list = resultado.apenasContabilidade;
         }
+
+        return list.filter(item => {
+            const searchMatch = !termo ||
+                (item.descricao || item.descBanco || '').toLowerCase().includes(termo) ||
+                (item.descContabilidade || '').toLowerCase().includes(termo) ||
+                item.valor.toString().includes(termo);
+
+            return searchMatch;
+        });
     }, [resultado, abaAtiva, termoPesquisa]);
+
+    // Counters
+    const stats = useMemo(() => {
+        if (!resultado) return { tratado: 0, total: 0 };
+        const list = abaAtiva === 'correspondidos' ? resultado.reconciliados :
+            abaAtiva === 'banco' ? resultado.apenasBanco : resultado.apenasContabilidade;
+
+        const total = list.length;
+        const tratado = list.filter((item: any) => getTratadoStatus(item)).length;
+        return { tratado, total };
+    }, [resultado, abaAtiva, alteracoes]);
+
+    const hasChanges = Object.keys(alteracoes).length > 0;
 
     return (
         <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <BarChart className="w-8 h-8 text-[#e82127]" />
-                Análise Global
-            </h2>
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <BarChart className="w-8 h-8 text-[#e82127]" />
+                    Análise Global
+                </h2>
+                {hasChanges && (
+                    <Button onClick={handleSave} disabled={loading} icon={<Save size={18} />} className="animate-in fade-in zoom-in duration-200">
+                        Guardar Alterações
+                    </Button>
+                )}
+            </div>
 
             <div className="bg-white dark:bg-[#1a1a1a] p-6 rounded-lg shadow-sm border border-gray-200 dark:border-white/10 flex flex-wrap gap-4 items-end">
                 <div>
@@ -128,103 +217,94 @@ export const AnalysisPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Chart */}
-                        <Card title="Distribuição" className="lg:col-span-1 h-[600px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={dadosPie}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="valor"
-                                        stroke="none"
-                                    >
-                                        {dadosPie.map((entrada, index) => (
-                                            <Cell key={`cell-${index}`} fill={entrada.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: 'var(--tw-colors-gray-900)', border: 'none', borderRadius: '4px' }}
-                                        itemStyle={{ color: '#fff' }}
-                                    />
-                                    <Legend verticalAlign="bottom" height={36} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </Card>
-
-                        {/* Detailed Table with Tabs & Search */}
-                        <Card className="lg:col-span-2 h-[600px] flex flex-col">
-                            {/* Tabs */}
-                            <div className="flex flex-col border-b border-gray-200 dark:border-white/10">
-                                <div className="flex">
-                                    <button
-                                        onClick={() => { setAbaAtiva('correspondidos'); setTermoPesquisa(''); }}
-                                        className={`flex-1 px-4 py-4 text-sm font-medium transition-colors border-b-2 ${abaAtiva === 'correspondidos' ? 'border-[#e82127] text-gray-900 dark:text-white bg-gray-50 dark:bg-white/5' : 'border-transparent text-gray-500 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}
-                                    >
-                                        Correspondidos
-                                    </button>
-                                    <button
-                                        onClick={() => { setAbaAtiva('banco'); setTermoPesquisa(''); }}
-                                        className={`flex-1 px-4 py-4 text-sm font-medium transition-colors border-b-2 ${abaAtiva === 'banco' ? 'border-yellow-500 text-gray-900 dark:text-white bg-yellow-50 dark:bg-yellow-900/10' : 'border-transparent text-gray-500 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}
-                                    >
-                                        Falta Banco
-                                    </button>
-                                    <button
-                                        onClick={() => { setAbaAtiva('contabilidade'); setTermoPesquisa(''); }}
-                                        className={`flex-1 px-4 py-4 text-sm font-medium transition-colors border-b-2 ${abaAtiva === 'contabilidade' ? 'border-orange-500 text-gray-900 dark:text-white bg-orange-50 dark:bg-orange-900/10' : 'border-transparent text-gray-500 dark:text-gray-500 hover:text-gray-900 dark:hover:text-white'}`}
-                                    >
-                                        Falta PHC
-                                    </button>
-                                </div>
-
-                                <div className="p-3 bg-gray-50 dark:bg-black/20">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                        <input
-                                            type="text"
-                                            value={termoPesquisa}
-                                            onChange={(e) => setTermoPesquisa(e.target.value)}
-                                            placeholder={`Pesquisar na aba ${abaAtiva === 'correspondidos' ? 'Correspondidos' : abaAtiva === 'banco' ? 'Banco' : 'PHC'}...`}
-                                            className="w-full bg-white dark:bg-black/40 border border-gray-300 dark:border-white/10 rounded-md pl-9 pr-4 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#e82127]"
-                                        />
-                                    </div>
-                                </div>
+                    <Card className="flex flex-col h-[700px]">
+                        {/* Tabs & Toolbar */}
+                        <div className="flex flex-col md:flex-row justify-between items-center border-b border-gray-200 dark:border-white/10 p-2 gap-4">
+                            <div className="flex gap-2 bg-gray-100 dark:bg-black/20 p-1 rounded-lg">
+                                <button
+                                    onClick={() => { setAbaAtiva('correspondidos'); setTermoPesquisa(''); }}
+                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${abaAtiva === 'correspondidos' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                                >
+                                    Correspondidos
+                                </button>
+                                <button
+                                    onClick={() => { setAbaAtiva('banco'); setTermoPesquisa(''); }}
+                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${abaAtiva === 'banco' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                                >
+                                    Falta Banco
+                                </button>
+                                <button
+                                    onClick={() => { setAbaAtiva('contabilidade'); setTermoPesquisa(''); }}
+                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${abaAtiva === 'contabilidade' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                                >
+                                    Falta PHC
+                                </button>
                             </div>
 
-                            <div className="flex-1 overflow-auto p-0">
-                                <table className="w-full text-left text-sm text-gray-500 dark:text-gray-400">
-                                    <thead className="bg-gray-50 dark:bg-white/5 text-xs uppercase font-medium text-gray-500 dark:text-gray-300 sticky top-0 backdrop-blur-md z-10">
-                                        <tr>
-                                            {abaAtiva === 'correspondidos' ? (
-                                                <>
-                                                    <th className="px-4 py-3">Valor</th>
-                                                    <th className="px-4 py-3">Data</th>
-                                                    <th className="px-4 py-3">Desc Banco</th>
-                                                    <th className="px-4 py-3">Desc PHC</th>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <th className="px-4 py-3">Data</th>
-                                                    <th className="px-4 py-3">Descrição</th>
-                                                    <th className="px-4 py-3">Valor</th>
-                                                </>
-                                            )}
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100 dark:divide-white/5">
-                                        {dadosFiltrados.length > 0 ? (
-                                            dadosFiltrados.map((item: any) => (
-                                                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
+                            <div className="flex items-center gap-4 w-full md:w-auto">
+                                <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-white/5 px-3 py-1.5 rounded-md border border-gray-200 dark:border-white/5 whitespace-nowrap">
+                                    <span className="font-semibold text-gray-900 dark:text-white">{stats.tratado}</span>
+                                    <span className="mx-1">/</span>
+                                    <span>{stats.total}</span>
+                                    <span className="ml-1">Tratados</span>
+                                </div>
+
+                                <div className="relative w-full md:w-64">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <input
+                                        type="text"
+                                        value={termoPesquisa}
+                                        onChange={(e) => setTermoPesquisa(e.target.value)}
+                                        placeholder="Pesquisar..."
+                                        className="w-full bg-gray-50 dark:bg-black/20 border border-gray-300 dark:border-white/10 rounded-md pl-9 pr-4 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:border-[#e82127]"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-auto">
+                            <table className="w-full text-left text-sm text-gray-500 dark:text-gray-400">
+                                <thead className="bg-gray-50 dark:bg-white/5 text-xs uppercase font-medium text-gray-500 dark:text-gray-300 sticky top-0 backdrop-blur-md z-10">
+                                    <tr>
+                                        <th className="px-4 py-3 w-12 text-center">
+                                            <div className="sr-only">Estado</div>
+                                        </th>
+                                        {abaAtiva === 'correspondidos' ? (
+                                            <>
+                                                <th className="px-4 py-3">Valor</th>
+                                                <th className="px-4 py-3">Data</th>
+                                                <th className="px-4 py-3">Desc Banco</th>
+                                                <th className="px-4 py-3">Desc PHC</th>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <th className="px-4 py-3">Data</th>
+                                                <th className="px-4 py-3">Descrição</th>
+                                                <th className="px-4 py-3">Valor</th>
+                                            </>
+                                        )}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                                    {dadosFiltrados.length > 0 ? (
+                                        dadosFiltrados.map((item: any) => {
+                                            const tratado = getTratadoStatus(item);
+                                            return (
+                                                <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors ${tratado ? 'bg-green-50/50 dark:bg-green-900/5' : ''}`}>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <button
+                                                            onClick={() => toggleTratado(item.id, tratado)}
+                                                            className={`transition-colors ${tratado ? 'text-green-500' : 'text-gray-300 hover:text-gray-400'}`}
+                                                        >
+                                                            {tratado ? <CheckSquare size={20} /> : <Square size={20} />}
+                                                        </button>
+                                                    </td>
                                                     {abaAtiva === 'correspondidos' ? (
                                                         <>
                                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{formatarMoeda(item.valor)}</td>
                                                             <td className="px-4 py-3 text-xs">{item.dataBanco}</td>
-                                                            <td className="px-4 py-3 truncate max-w-[120px] text-xs" title={item.descBanco}>{item.descBanco}</td>
-                                                            <td className="px-4 py-3 truncate max-w-[120px] text-xs" title={item.descContabilidade}>{item.descContabilidade}</td>
+                                                            <td className="px-4 py-3 truncate max-w-[200px] text-xs" title={item.descBanco}>{item.descBanco}</td>
+                                                            <td className="px-4 py-3 truncate max-w-[200px] text-xs" title={item.descContabilidade}>{item.descContabilidade}</td>
                                                         </>
                                                     ) : (
                                                         <>
@@ -234,19 +314,19 @@ export const AnalysisPage: React.FC = () => {
                                                         </>
                                                     )}
                                                 </tr>
-                                            ))
-                                        ) : (
-                                            <tr>
-                                                <td colSpan={4} className="py-12 text-center text-gray-400 dark:text-gray-600">
-                                                    Nenhum registo encontrado.
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </Card>
-                    </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={abaAtiva === 'correspondidos' ? 5 : 4} className="py-12 text-center text-gray-400 dark:text-gray-600">
+                                                Nenhum registo encontrado.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
                 </div>
             )}
         </div>

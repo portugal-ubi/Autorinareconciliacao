@@ -330,6 +330,22 @@ app.post('/api/verify/import', async (req, res) => {
     }
 });
 
+// Update Transaction Status
+app.post('/api/transactions/status', async (req, res) => {
+    try {
+        const { type, ids, tratado } = req.body;
+        if (!type || !ids || !Array.isArray(ids)) {
+            return res.status(400).json({ error: 'Valid type and ids array required' });
+        }
+
+        const result = await transactionService.updateStatus(type, ids, tratado);
+        res.json(result);
+    } catch (error) {
+        console.error("Status update error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 AppDataSource.initialize()
     .then(async () => {
         console.log("Data Source has been initialized!");

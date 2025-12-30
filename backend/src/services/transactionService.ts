@@ -194,5 +194,19 @@ export const transactionService = {
             }
         }
         return { imported };
+    },
+
+    async updateStatus(type: 'bank' | 'phc', ids: string[], tratado: boolean) {
+        const repo = type === 'bank' ? AppDataSource.getRepository(BankTransaction) : AppDataSource.getRepository(PhcTransaction);
+
+        if (ids.length === 0) return { updated: 0 };
+
+        const result = await repo.createQueryBuilder()
+            .update()
+            .set({ tratado: tratado })
+            .where("id IN (:...ids)", { ids })
+            .execute();
+
+        return { updated: result.affected };
     }
 };

@@ -23,4 +23,7 @@ export class PhcTransaction {
 
     @CreateDateColumn()
     data_importacao!: Date;
+
+    @Column({ default: false })
+    tratado!: boolean;
 }
