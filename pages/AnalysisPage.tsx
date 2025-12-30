@@ -20,6 +20,8 @@ export const AnalysisPage: React.FC = () => {
     // Local changes state: mapping ID -> boolean (true = tratado, false = nao tratado)
     // Only stores changes that differ from original
     const [alteracoes, setAlteracoes] = useState<Record<string, boolean>>({});
+    // Notes state: mapping ID -> string (only stores changes)
+    const [notas, setNotas] = useState<Record<string, string>>({});
 
     // UI States
     const [abaAtiva, setAbaAtiva] = useState<'correspondidos' | 'banco' | 'contabilidade'>('correspondidos');
@@ -33,6 +35,7 @@ export const AnalysisPage: React.FC = () => {
             const data = await res.json();
             setResultado(data);
             setAlteracoes({}); // Reset changes on new analysis
+            setNotas({});
             setCurrentPage(1); // Reset to page 1
         } catch (error) {
             console.error("Error analyzing:", error);
