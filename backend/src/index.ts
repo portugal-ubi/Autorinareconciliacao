@@ -346,11 +346,7 @@ app.post('/api/transactions/status', async (req, res) => {
     }
 });
 
-    } catch (error) {
-    console.error("Status update error:", error);
-    res.status(500).json({ error: 'Internal server error' });
-}
-});
+
 
 // Admin: Reset Database
 app.delete('/api/admin/reset', async (req, res) => {
