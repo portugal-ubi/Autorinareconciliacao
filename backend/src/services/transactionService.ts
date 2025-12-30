@@ -119,16 +119,7 @@ export const transactionService = {
         const dadosBanco = bankTx.map(mapToTransacao);
         const dadosContabilidade = phcTx.map(mapToTransacao);
 
-        // REUSE LOGIC: We need to expose the core matching logic from reconciliation.ts
-        // Currently 'processReconciliation' does parsing + matching. 
-        // We should extract the matching part. For now, I'll copy the matching logic here 
-        // or import it if I refactor reconciliation.ts.
-        // Let's try to import a new 'matchTransactions' function from reconciliation.ts.
-        // I need to go to reconciliation.ts and extract the logic first.
-
-        // For this step I will just skeleton this and waiting for the refactor of reconciliation.ts
-        // Actually, I can do the refactor in the same turn if I use multi_replace.
-        return { bankCount: dadosBanco.length, phcCount: dadosContabilidade.length, dadosBanco, dadosContabilidade };
+        return matchTransactions(dadosBanco, dadosContabilidade);
     },
 
     async verify(type: 'bank' | 'phc', buffer: Buffer) {
