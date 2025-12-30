@@ -63,8 +63,8 @@ export const AnalysisPage: React.FC = () => {
             const isBank = resultado.apenasBanco.find(t => t.id === id);
             const isPhc = resultado.apenasContabilidade.find(t => t.id === id);
 
-            if (isBank) updates.push({ type: 'bank', id, val });
-            if (isPhc) updates.push({ type: 'phc', id, val });
+            if (isBank) updates.push({ type: 'bank', id, val: val as boolean });
+            if (isPhc) updates.push({ type: 'phc', id, val: val as boolean });
         });
 
         // Group by type and value is tricky if we mix true/false.
