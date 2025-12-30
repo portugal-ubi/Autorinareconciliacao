@@ -26,4 +26,7 @@ export class BankTransaction {
 
     @Column({ default: false })
     tratado!: boolean;
+
+    @Column({ type: "text", nullable: true })
+    notas?: string;
 }

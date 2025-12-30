@@ -333,12 +333,27 @@ app.post('/api/verify/import', async (req, res) => {
 // Update Transaction Status
 app.post('/api/transactions/status', async (req, res) => {
     try {
-        const { type, ids, tratado } = req.body;
-        if (!type || !ids || !Array.isArray(ids)) {
-            return res.status(400).json({ error: 'Valid type and ids array required' });
+        const { type, items } = req.body; // New structure: items: [{id, tratado?, notas?}]
+
+        // Backward compatibility support (ids + tratado)
+        const { ids, tratado } = req.body;
+
+        let updateItems = [];
+
+        if (items && Array.isArray(items)) {
+            updateItems = items;
+        } else if (ids && Array.isArray(ids) && tratado !== undefined) {
+            // Convert old format to new
+            updateItems = ids.map((id: string) => ({ id, tratado }));
+        } else {
+            return res.status(400).json({ error: 'Valid type and items/ids required' });
         }
 
-        const result = await transactionService.updateStatus(type, ids, tratado);
+        if (!type) {
+            return res.status(400).json({ error: 'Type required' });
+        }
+
+        const result = await transactionService.updateStatus(type, updateItems);
         res.json(result);
     } catch (error) {
         console.error("Status update error:", error);

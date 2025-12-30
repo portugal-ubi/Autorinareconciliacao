@@ -180,7 +180,7 @@ export const AnalysisPage: React.FC = () => {
         return { tratado, total };
     }, [resultado, abaAtiva, alteracoes]);
 
-    const hasChanges = Object.keys(alteracoes).length > 0;
+    const hasChanges = Object.keys(alteracoes).length > 0 || Object.keys(notas).length > 0;
 
     return (
         <div className="space-y-6">
@@ -385,6 +385,7 @@ export const AnalysisPage: React.FC = () => {
                                                 <th className="px-4 py-3">Data</th>
                                                 <th className="px-4 py-3">Descrição</th>
                                                 <th className="px-4 py-3">Valor</th>
+                                                <th className="px-4 py-3">Notas</th>
                                             </>
                                         )}
                                     </tr>
@@ -415,6 +416,15 @@ export const AnalysisPage: React.FC = () => {
                                                             <td className="px-4 py-3 text-xs">{item.data}</td>
                                                             <td className="px-4 py-3 text-gray-900 dark:text-white text-xs" title={item.descricao}>{item.descricao}</td>
                                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{formatarMoeda(item.valor)}</td>
+                                                            <td className="px-4 py-3">
+                                                                <input
+                                                                    type="text"
+                                                                    value={getNota(item)}
+                                                                    onChange={(e) => handleNoteChange(item.id, e.target.value)}
+                                                                    placeholder="Adicionar nota..."
+                                                                    className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-[#e82127] text-xs py-1 px-2 focus:outline-none transition-colors"
+                                                                />
+                                                            </td>
                                                         </>
                                                     )}
                                                 </tr>

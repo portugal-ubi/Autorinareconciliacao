@@ -6,6 +6,7 @@ interface Transacao {
     descricao: string;
     valor: number;
     tratado: boolean;
+    notas?: string;
     originalRow?: any;
 }
 
@@ -19,11 +20,12 @@ interface TransacaoCorrespondida {
     descBanco: string;
     descContabilidade: string;
     tratado: boolean;
+    notas?: string; // Should we have separate notes for bank/phc? Probably yes, or merged. Let's keep it simple for now, maybe just bank notes? User asked for notes in "Falta Banco" and "Falta PHC" specifically.
 }
 
 interface ResultadoReconciliacao {
     id: string;
-    reconciliados: TransacaoCorrespondida[];
+    reconciliados: TransacaoCorrespondida[]; // Reconciled usually don't need notes as per user request ("Falta Banco" and "Falta PHC")
     apenasBanco: Transacao[];
     apenasContabilidade: Transacao[];
     resumo: any;

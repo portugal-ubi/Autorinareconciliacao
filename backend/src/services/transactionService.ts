@@ -112,7 +112,8 @@ export const transactionService = {
             data: typeof item.data === 'string' ? item.data : item.data.toISOString().split('T')[0],
             descricao: item.descricao,
             valor: Number(item.valor),
-            tratado: !!item.tratado, // Fix: Use value from DB
+            tratado: !!item.tratado,
+            notas: item.notas,
             originalRow: item
         });
 
@@ -196,17 +197,31 @@ export const transactionService = {
         return { imported };
     },
 
-    async updateStatus(type: 'bank' | 'phc', ids: string[], tratado: boolean) {
+    async updateStatus(type: 'bank' | 'phc', items: { id: string, tratado?: boolean, notas?: string }[]) {
         const repo = type === 'bank' ? AppDataSource.getRepository(BankTransaction) : AppDataSource.getRepository(PhcTransaction);
 
-        if (ids.length === 0) return { updated: 0 };
+        if (items.length === 0) return { updated: 0 };
 
-        const result = await repo.createQueryBuilder()
-            .update()
-            .set({ tratado: tratado })
-            .where("id IN (:...ids)", { ids })
-            .execute();
+        // For mixed updates (some just tratado, some notes, some both), we might need loop or CASE statement.
+        // Loop is safest for now given the volume isn't huge (manual updates).
+        // Or we can use query builder for bulk update if fields are same. 
+        // But here fields differ per item potentially.
+        // Let's loop for now. It's robust.
 
-        return { updated: result.affected };
+        let count = 0;
+        await AppDataSource.transaction(async transactionalEntityManager => {
+            for (const item of items) {
+                const updateData: any = {};
+                if (item.tratado !== undefined) updateData.tratado = item.tratado;
+                if (item.notas !== undefined) updateData.notas = item.notas;
+
+                if (Object.keys(updateData).length > 0) {
+                    await transactionalEntityManager.update(type === 'bank' ? BankTransaction : PhcTransaction, item.id, updateData);
+                    count++;
+                }
+            }
+        });
+
+        return { updated: count };
     }
 };
