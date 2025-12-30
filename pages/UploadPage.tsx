@@ -17,7 +17,7 @@ export const UploadPage: React.FC = () => {
 
     const fetchStatus = async () => {
         try {
-            const res = await fetch('http://localhost:3000/api/status/range');
+            const res = await fetch('/api/status/range');
             const data = await res.json();
             setStatus(data);
         } catch (error) {
@@ -34,7 +34,7 @@ export const UploadPage: React.FC = () => {
         formData.append('file', e.target.files[0]);
 
         try {
-            const res = await fetch(`http://localhost:3000/api/upload/${type}`, {
+            const res = await fetch(`/api/upload/${type}`, {
                 method: 'POST',
                 body: formData
             });

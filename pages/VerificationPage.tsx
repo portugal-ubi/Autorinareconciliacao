@@ -16,7 +16,7 @@ export const VerificationPage: React.FC = () => {
         formData.append('type', selectedType);
 
         try {
-            const res = await fetch('http://localhost:3000/api/verify/check', {
+            const res = await fetch('/api/verify/check', {
                 method: 'POST',
                 body: formData
             });
