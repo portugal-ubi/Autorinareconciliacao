@@ -243,8 +243,31 @@ app.delete('/api/users/:id', async (req, res) => {
 });
 
 AppDataSource.initialize()
-    .then(() => {
+    .then(async () => {
         console.log("Data Source has been initialized!");
+
+        // Auto-seed Admin User
+        try {
+            const userRepo = AppDataSource.getRepository(User);
+            const adminEmail = 'm.silva@rglda.pt';
+            const adminExists = await userRepo.findOneBy({ email: adminEmail });
+
+            if (!adminExists) {
+                console.log("Admin user not found. Creating default admin...");
+                const admin = new User();
+                admin.name = 'Mauro Silva';
+                admin.email = adminEmail;
+                admin.password = 'maurosilva10';
+                admin.role = 'admin';
+                await userRepo.save(admin);
+                console.log("Default admin created successfully.");
+            } else {
+                console.log("Admin user already exists.");
+            }
+        } catch (error) {
+            console.error("Error seeding admin user:", error);
+        }
+
         app.listen(port, () => {
             console.log(`Server running on port ${port}`);
         });
