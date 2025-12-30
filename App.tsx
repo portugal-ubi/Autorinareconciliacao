@@ -1,21 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pagina, Utilizador, ResultadoReconciliacao } from './types';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { UsersPage } from './pages/UsersPage';
-
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { UploadPage } from './pages/UploadPage';
 import { VerificationPage } from './pages/VerificationPage';
 import { AnalysisPage } from './pages/AnalysisPage';
-import { useEffect } from 'react';
+import { ResultsPage } from './pages/ResultsPage';
+import { obterHistorico } from './services/reconciliationService';
 
 const App: React.FC = () => {
   const [utilizadorAtual, setUtilizadorAtual] = useState<Utilizador | null>(null);
   const [paginaAtual, setPaginaAtual] = useState<Pagina>(Pagina.LOGIN);
+  const [historico, setHistorico] = useState<ResultadoReconciliacao[]>([]);
+  const [resultadoSelecionado, setResultadoSelecionado] = useState<ResultadoReconciliacao | null>(null);
 
+  useEffect(() => {
+    if (utilizadorAtual) {
+      loadHistory();
+    }
+  }, [utilizadorAtual, paginaAtual]); // Refresh when page changes esp. after upload
 
+  const loadHistory = async () => {
+    try {
+      const data = await obterHistorico();
+      setHistorico(data);
+    } catch (error) {
+      console.error("Failed to load history", error);
+    }
+  };
 
   const handleLogin = (user: Utilizador) => {
     setUtilizadorAtual(user);
@@ -25,6 +40,12 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setUtilizadorAtual(null);
     setPaginaAtual(Pagina.LOGIN);
+    setHistorico([]);
+  };
+
+  const handleVerHistorico = (resultado: ResultadoReconciliacao) => {
+    setResultadoSelecionado(resultado);
+    setPaginaAtual(Pagina.RESULTADOS);
   };
 
   // Renderizar conteúdo baseado no estado da página
@@ -36,7 +57,11 @@ const App: React.FC = () => {
     switch (paginaAtual) {
       case Pagina.DASHBOARD:
         return (
-          <DashboardPage />
+          <DashboardPage
+            historicoRecente={historico}
+            onVerNovaRecon={() => setPaginaAtual(Pagina.UPLOAD)}
+            onSelecionarHistorico={handleVerHistorico}
+          />
         );
       case Pagina.UTILIZADORES:
         return <UsersPage />;
@@ -46,8 +71,16 @@ const App: React.FC = () => {
         return <VerificationPage />;
       case Pagina.ANALISE:
         return <AnalysisPage />;
+      case Pagina.RESULTADOS:
+        if (!resultadoSelecionado) return <DashboardPage historicoRecente={historico} onVerNovaRecon={() => setPaginaAtual(Pagina.UPLOAD)} onSelecionarHistorico={handleVerHistorico} />;
+        return (
+          <ResultsPage
+            resultado={resultadoSelecionado}
+            onVoltar={() => setPaginaAtual(Pagina.DASHBOARD)}
+          />
+        );
       default:
-        return <DashboardPage />;
+        return <DashboardPage historicoRecente={historico} onVerNovaRecon={() => setPaginaAtual(Pagina.UPLOAD)} onSelecionarHistorico={handleVerHistorico} />;
     }
   };
 
@@ -79,10 +112,10 @@ function getTituloPagina(pagina: Pagina): string {
   switch (pagina) {
     case Pagina.DASHBOARD: return 'Painel de Controlo';
     case Pagina.UTILIZADORES: return 'Gestão de Utilizadores';
-
     case Pagina.UPLOAD: return 'Importar Movimentos';
     case Pagina.VERIFICACAO: return 'Verificação de Integridade';
     case Pagina.ANALISE: return 'Análise Global';
+    case Pagina.RESULTADOS: return 'Detalhe da Reconciliação';
     default: return '';
   }
 }
