@@ -251,10 +251,25 @@ app.delete('/api/users/:id', async (req, res) => {
 // Status (Range)
 app.get('/api/status/range', async (req, res) => {
     try {
-        const status = await transactionService.getStatus();
+        const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+        const status = await transactionService.getStatus(year);
         res.json(status);
     } catch (error) {
         console.error("Status error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Global Analysis
+app.get('/api/reconciliation/global', async (req, res) => {
+    try {
+        const { start, end } = req.query;
+        if (!start || !end) return res.status(400).json({ error: 'Start and End date required' });
+
+        const result = await transactionService.reconcileGlobal(start as string, end as string);
+        res.json(result);
+    } catch (error) {
+        console.error("Global reconciliation error:", error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

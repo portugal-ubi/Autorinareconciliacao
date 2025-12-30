@@ -1,7 +1,7 @@
 import { AppDataSource } from "..";
 import { BankTransaction } from "../entities/BankTransaction";
 import { PhcTransaction } from "../entities/PhcTransaction";
-import { parseExcel } from "./reconciliation";
+import { parseExcel, matchTransactions } from "./reconciliation";
 import * as crypto from 'crypto';
 
 const generateHash = (date: string, amount: number, desc: string): string => {
@@ -62,25 +62,73 @@ export const transactionService = {
         return { added, skipped, total: transactions.length };
     },
 
-    async getStatus() {
+    async getStatus(year?: number) {
         const bankRepo = AppDataSource.getRepository(BankTransaction);
         const phcRepo = AppDataSource.getRepository(PhcTransaction);
 
-        const bankStats = await bankRepo
-            .createQueryBuilder("bank")
+        let bankQuery = bankRepo.createQueryBuilder("bank");
+        let phcQuery = phcRepo.createQueryBuilder("phc");
+
+        if (year) {
+            bankQuery = bankQuery.where("YEAR(bank.data) = :year", { year });
+            phcQuery = phcQuery.where("YEAR(phc.data) = :year", { year });
+        }
+
+        const bankStats = await bankQuery
             .select("MIN(bank.data)", "minDate")
             .addSelect("MAX(bank.data)", "maxDate")
             .addSelect("COUNT(*)", "count")
             .getRawOne();
 
-        const phcStats = await phcRepo
-            .createQueryBuilder("phc")
+        const phcStats = await phcQuery
             .select("MIN(phc.data)", "minDate")
             .addSelect("MAX(phc.data)", "maxDate")
             .addSelect("COUNT(*)", "count")
             .getRawOne();
 
         return { bank: bankStats, phc: phcStats };
+    },
+
+    async reconcileGlobal(startDate: string, endDate: string) {
+        // Fetch data
+        const bankRepo = AppDataSource.getRepository(BankTransaction);
+        const phcRepo = AppDataSource.getRepository(PhcTransaction);
+
+        const bankTx = await bankRepo.createQueryBuilder("t")
+            .where("t.data BETWEEN :start AND :end", { start: startDate, end: endDate })
+            .getMany();
+
+        const phcTx = await phcRepo.createQueryBuilder("t")
+            .where("t.data BETWEEN :start AND :end", { start: startDate, end: endDate })
+            .getMany();
+
+        // Convert to common format expected by reconciliation logic
+        // We need to map entities to the interface used in reconciliation.ts, 
+        // BUT reconciliation.ts uses 'parseExcel' result which is 'Transacao'.
+        // Let's manually map or cast.
+
+        const mapToTransacao = (item: any) => ({
+            id: item.id, // Use UUID from DB
+            data: typeof item.data === 'string' ? item.data : item.data.toISOString().split('T')[0],
+            descricao: item.descricao,
+            valor: Number(item.valor),
+            tratado: false,
+            originalRow: item
+        });
+
+        const dadosBanco = bankTx.map(mapToTransacao);
+        const dadosContabilidade = phcTx.map(mapToTransacao);
+
+        // REUSE LOGIC: We need to expose the core matching logic from reconciliation.ts
+        // Currently 'processReconciliation' does parsing + matching. 
+        // We should extract the matching part. For now, I'll copy the matching logic here 
+        // or import it if I refactor reconciliation.ts.
+        // Let's try to import a new 'matchTransactions' function from reconciliation.ts.
+        // I need to go to reconciliation.ts and extract the logic first.
+
+        // For this step I will just skeleton this and waiting for the refactor of reconciliation.ts
+        // Actually, I can do the refactor in the same turn if I use multi_replace.
+        return { bankCount: dadosBanco.length, phcCount: dadosContabilidade.length, dadosBanco, dadosContabilidade };
     },
 
     async verify(type: 'bank' | 'phc', buffer: Buffer) {

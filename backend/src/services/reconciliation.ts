@@ -85,10 +85,7 @@ export const cleanValue = (val: any): number => {
     return 0;
 };
 
-export const processReconciliation = async (bancoBuffer: Buffer, phcBuffer: Buffer): Promise<ResultadoReconciliacao> => {
-    const dadosBanco = parseExcel(bancoBuffer);
-    const dadosContabilidade = parseExcel(phcBuffer);
-
+export const matchTransactions = (dadosBanco: Transacao[], dadosContabilidade: Transacao[]): ResultadoReconciliacao => {
     const reconciliados: TransacaoCorrespondida[] = [];
     const apenasBanco: Transacao[] = [];
     // Mutable copy
@@ -105,11 +102,6 @@ export const processReconciliation = async (bancoBuffer: Buffer, phcBuffer: Buff
             .filter(item => Math.abs(item.tx.valor - txBanco.valor) < 0.01);
 
         // 2. Robust Absolute Value Check (If no exact match found)
-        // Check if there is a value with same absolute amount but inverted sign (e.g. +500 vs -500)
-        // OR simply if abs(val1) === abs(val2) regardless of sign if that was the intent.
-        // Usually in reconciliation:
-        // - Bank: -500 (withdrawal) matches Accounting: -500 (payment) -> Exact Match
-        // - Sometimes User wants to match Bank: -500 with Accounting: +500 (if entered incorrectly as receipt)
         if (candidatos.length === 0) {
             candidatos = poolContabilidade
                 .map((tx, index) => ({ tx, index }))
@@ -165,4 +157,10 @@ export const processReconciliation = async (bancoBuffer: Buffer, phcBuffer: Buff
         carimboTempo: new Date().toISOString(),
         tratado: false
     };
+};
+
+export const processReconciliation = async (bancoBuffer: Buffer, phcBuffer: Buffer): Promise<ResultadoReconciliacao> => {
+    const dadosBanco = parseExcel(bancoBuffer);
+    const dadosContabilidade = parseExcel(phcBuffer);
+    return matchTransactions(dadosBanco, dadosContabilidade);
 };

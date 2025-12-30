@@ -10,14 +10,18 @@ export const UploadPage: React.FC = () => {
     const [status, setStatus] = useState<UploadStatus | null>(null);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+    // Years list (current + past 4 years)
+    const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
     useEffect(() => {
         fetchStatus();
-    }, []);
+    }, [selectedYear]);
 
     const fetchStatus = async () => {
         try {
-            const res = await fetch('/api/status/range');
+            const res = await fetch(`/api/status/range?year=${selectedYear}`);
             const data = await res.json();
             setStatus(data);
         } catch (error) {
@@ -60,7 +64,21 @@ export const UploadPage: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Importar Dados</h2>
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Importar Dados</h2>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Ano:</span>
+                    <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        className="bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-white/10 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-[#e82127]"
+                    >
+                        {years.map(y => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
 
             {/* Status Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
