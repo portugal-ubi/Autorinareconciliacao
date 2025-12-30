@@ -6,6 +6,9 @@ import { DataSource } from 'typeorm';
 import { processReconciliation } from './services/reconciliation';
 import { Reconciliation } from './entities/Reconciliation';
 import { User } from './entities/User';
+import { BankTransaction } from './entities/BankTransaction';
+import { PhcTransaction } from './entities/PhcTransaction';
+import { transactionService } from './services/transactionService';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -23,7 +26,7 @@ export const AppDataSource = new DataSource({
     database: process.env.DB_NAME || "recon_db",
     synchronize: true, // Auto-create tables (dev only)
     logging: false,
-    entities: [Reconciliation, User],
+    entities: [Reconciliation, User, BankTransaction, PhcTransaction],
     subscribers: [],
     migrations: [],
 });
@@ -238,6 +241,60 @@ app.delete('/api/users/:id', async (req, res) => {
         res.json({ message: 'Utilizador removido' });
     } catch (error) {
         console.error("Delete user error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+
+// 6. CONTINUOUS RECONCILIATION & VERIFICATION
+
+// Status (Range)
+app.get('/api/status/range', async (req, res) => {
+    try {
+        const status = await transactionService.getStatus();
+        res.json(status);
+    } catch (error) {
+        console.error("Status error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Upload Bank
+app.post('/api/upload/bank', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'File required' });
+        const result = await transactionService.uploadBank(req.file.buffer, req.file.originalname);
+        res.json(result);
+    } catch (error) {
+        console.error("Upload Bank error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Upload Phc
+app.post('/api/upload/phc', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'File required' });
+        const result = await transactionService.uploadPhc(req.file.buffer, req.file.originalname);
+        res.json(result);
+    } catch (error) {
+        console.error("Upload PHC error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Verify Check
+app.post('/api/verify/check', upload.single('file'), async (req, res) => {
+    try {
+        const { type } = req.body;
+        if (!req.file || !type) return res.status(400).json({ error: 'File and type required' });
+
+        if (type !== 'bank' && type !== 'phc') return res.status(400).json({ error: 'Invalid type' });
+
+        const result = await transactionService.verify(type, req.file.buffer);
+        res.json(result);
+    } catch (error) {
+        console.error("Verify error:", error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

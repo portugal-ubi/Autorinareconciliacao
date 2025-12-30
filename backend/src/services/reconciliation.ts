@@ -29,7 +29,7 @@ interface ResultadoReconciliacao {
     tratado: boolean;
 }
 
-const parseExcel = (buffer: Buffer): Transacao[] => {
+export const parseExcel = (buffer: Buffer): Transacao[] => {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
@@ -73,7 +73,7 @@ const parseExcel = (buffer: Buffer): Transacao[] => {
     }).filter(t => t.valor !== 0);
 };
 
-const cleanValue = (val: any): number => {
+export const cleanValue = (val: any): number => {
     if (typeof val === 'number') return val;
     if (typeof val === 'string') {
         let clean = val.replace(/[€$ ]/g, '');

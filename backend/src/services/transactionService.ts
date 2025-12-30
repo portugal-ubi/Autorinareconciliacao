@@ -1,0 +1,134 @@
+import { AppDataSource } from "..";
+import { BankTransaction } from "../entities/BankTransaction";
+import { PhcTransaction } from "../entities/PhcTransaction";
+import { parseExcel } from "./reconciliation";
+import * as crypto from 'crypto';
+
+const generateHash = (date: string, amount: number, desc: string): string => {
+    return crypto.createHash('md5').update(`${date}|${amount}|${desc}`).digest('hex');
+};
+
+export const transactionService = {
+    async uploadBank(buffer: Buffer, originalFilename: string) {
+        const repo = AppDataSource.getRepository(BankTransaction);
+        const transactions = parseExcel(buffer);
+        let added = 0;
+        let skipped = 0;
+
+        for (const t of transactions) {
+            const hash = generateHash(t.data, t.valor, t.descricao);
+
+            // Check if exists
+            const exists = await repo.findOneBy({ hash });
+            if (!exists) {
+                const newTx = new BankTransaction();
+                newTx.data = t.data;
+                newTx.valor = t.valor;
+                newTx.descricao = t.descricao;
+                newTx.hash = hash;
+                newTx.arquivo_origem = originalFilename;
+                await repo.save(newTx);
+                added++;
+            } else {
+                skipped++;
+            }
+        }
+        return { added, skipped, total: transactions.length };
+    },
+
+    async uploadPhc(buffer: Buffer, originalFilename: string) {
+        const repo = AppDataSource.getRepository(PhcTransaction);
+        const transactions = parseExcel(buffer);
+        let added = 0;
+        let skipped = 0;
+
+        for (const t of transactions) {
+            const hash = generateHash(t.data, t.valor, t.descricao);
+
+            const exists = await repo.findOneBy({ hash });
+            if (!exists) {
+                const newTx = new PhcTransaction();
+                newTx.data = t.data;
+                newTx.valor = t.valor;
+                newTx.descricao = t.descricao;
+                newTx.hash = hash;
+                newTx.arquivo_origem = originalFilename;
+                await repo.save(newTx);
+                added++;
+            } else {
+                skipped++;
+            }
+        }
+        return { added, skipped, total: transactions.length };
+    },
+
+    async getStatus() {
+        const bankRepo = AppDataSource.getRepository(BankTransaction);
+        const phcRepo = AppDataSource.getRepository(PhcTransaction);
+
+        const bankStats = await bankRepo
+            .createQueryBuilder("bank")
+            .select("MIN(bank.data)", "minDate")
+            .addSelect("MAX(bank.data)", "maxDate")
+            .addSelect("COUNT(*)", "count")
+            .getRawOne();
+
+        const phcStats = await phcRepo
+            .createQueryBuilder("phc")
+            .select("MIN(phc.data)", "minDate")
+            .addSelect("MAX(phc.data)", "maxDate")
+            .addSelect("COUNT(*)", "count")
+            .getRawOne();
+
+        return { bank: bankStats, phc: phcStats };
+    },
+
+    async verify(type: 'bank' | 'phc', buffer: Buffer) {
+        const repo = type === 'bank' ? AppDataSource.getRepository(BankTransaction) : AppDataSource.getRepository(PhcTransaction);
+        const fileData = parseExcel(buffer);
+
+        // Find existing range covered by file to optimize query? 
+        // Or just check each hash? Checking each hash is safer for now.
+
+        const missingInDb = [];
+        const extraInDb = []; // This is harder because we need to know the range of the file.
+
+        // For "Missing in DB", we check if file rows exist in DB.
+        for (const row of fileData) {
+            const hash = generateHash(row.data, row.valor, row.descricao);
+            const exists = await repo.findOneBy({ hash });
+            if (!exists) {
+                missingInDb.push(row);
+            }
+        }
+
+        // For "Extra in DB" (Present in DB but missing in File for the same period)
+        // We need to determine the date range of the file.
+        if (fileData.length > 0) {
+            const dates = fileData.map(d => new Date(d.data).getTime());
+            const minDate = new Date(Math.min(...dates)).toISOString().split('T')[0];
+            const maxDate = new Date(Math.max(...dates)).toISOString().split('T')[0];
+
+            // Fetch all DB records in this range
+            const dbRecords = await repo.createQueryBuilder("t")
+                .where("t.data >= :minDate AND t.data <= :maxDate", { minDate, maxDate })
+                .getMany();
+
+            for (const dbRow of dbRecords) {
+                const dbHash = dbRow.hash;
+                // Check if this hash exists in the processed fileData (we need to re-hash file data or keep a Set)
+                // Let's create a Set of file hashes for O(1) lookup
+                const fileHashes = new Set(fileData.map(r => generateHash(r.data, r.valor, r.descricao)));
+
+                if (!fileHashes.has(dbHash)) {
+                    extraInDb.push(dbRow);
+                }
+            }
+        }
+
+        return {
+            missingInDb,
+            extraInDb
+        };
+    }
+};

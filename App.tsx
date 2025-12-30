@@ -8,6 +8,8 @@ import { ResultsPage } from './pages/ResultsPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
+import { UploadPage } from './pages/UploadPage';
+import { VerificationPage } from './pages/VerificationPage';
 import { gerarHistoricoInicial, obterHistorico, apagarReconciliacao, atualizarNomeReconciliacao } from './services/reconciliationService';
 import { useEffect } from 'react';
 
@@ -103,6 +105,10 @@ const App: React.FC = () => {
         return <UsersPage />;
       case Pagina.NOVA_RECON:
         return <NewReconciliationPage onConcluir={handleReconciliacaoCompleta} />;
+      case Pagina.UPLOAD:
+        return <UploadPage />;
+      case Pagina.VERIFICACAO:
+        return <VerificationPage />;
       case Pagina.RESULTADOS:
         return resultadoAtual ? (
           <ResultsPage
@@ -167,6 +173,8 @@ function getTituloPagina(pagina: Pagina): string {
     case Pagina.DASHBOARD: return 'Painel de Controlo';
     case Pagina.UTILIZADORES: return 'Gestão de Utilizadores';
     case Pagina.NOVA_RECON: return 'Nova Reconciliação';
+    case Pagina.UPLOAD: return 'Importar Movimentos';
+    case Pagina.VERIFICACAO: return 'Verificação de Integridade';
     case Pagina.RESULTADOS: return 'Resultados da Reconciliação';
     case Pagina.HISTORICO: return 'Histórico';
     default: return '';
