@@ -314,6 +314,22 @@ app.post('/api/verify/check', upload.single('file'), async (req, res) => {
     }
 });
 
+// Import Missing Items
+app.post('/api/verify/import', async (req, res) => {
+    try {
+        const { type, transactions } = req.body;
+        if (!type || !transactions || !Array.isArray(transactions)) {
+            return res.status(400).json({ error: 'Valid type and transactions array required' });
+        }
+
+        const result = await transactionService.importTransactions(type, transactions);
+        res.json(result);
+    } catch (error) {
+        console.error("Import error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 AppDataSource.initialize()
     .then(async () => {
         console.log("Data Source has been initialized!");
