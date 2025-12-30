@@ -16,26 +16,39 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { tema, alternarTema } = useTema();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simular chamada de API
-    setTimeout(() => {
-      setIsLoading(false);
-      onLogin({
-        id: '1',
-        nome: 'Elon M.',
-        email: email,
-        funcao: 'admin'
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${API_URL}/api/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
-    }, 1000);
+
+      const data = await response.json();
+
+      if (response.ok) {
+        onLogin(data);
+      } else {
+        alert(data.error || 'Erro ao iniciar sessão');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      alert('Erro de conexão ao servidor');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0a0a0a] relative overflow-hidden transition-colors duration-200">
       {/* Botão de Tema no Login */}
-      <button 
+      <button
         onClick={alternarTema}
         className="absolute top-6 right-6 p-2 rounded-full bg-white dark:bg-white/10 text-gray-500 dark:text-white shadow-sm hover:shadow-md transition-all z-20"
       >
@@ -45,7 +58,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       {/* Decoração de Fundo */}
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#e82127] to-transparent opacity-50"></div>
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-[#e82127] rounded-full filter blur-[120px] opacity-10 animate-pulse"></div>
-      
+
       <Card className="w-full max-w-md p-8 z-10 border-gray-200 dark:border-white/5 shadow-xl dark:shadow-2xl bg-white dark:bg-black/40">
         <div className="text-center mb-10">
           <div className="w-12 h-12 bg-[#e82127] rounded-sm flex items-center justify-center font-bold text-white text-xl mx-auto mb-4 shadow-[0_0_20px_rgba(232,33,39,0.4)]">
@@ -56,17 +69,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Input 
-            label="Endereço de Email" 
-            type="email" 
+          <Input
+            label="Endereço de Email"
+            type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="nome@empresa.com"
           />
-          
-          <Input 
-            label="Palavra-passe" 
-            type="password" 
+
+          <Input
+            label="Palavra-passe"
+            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
@@ -85,7 +98,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           </Button>
         </form>
       </Card>
-      
+
       <p className="absolute bottom-4 left-4 text-gray-400 dark:text-gray-600 text-[10px] tracking-widest uppercase font-medium">
         *made by Mauro Silva
       </p>

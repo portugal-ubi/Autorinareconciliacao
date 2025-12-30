@@ -135,14 +135,25 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
                       })}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="font-semibold text-gray-900 dark:text-white">{item.resumo.totalReconciliado}</span>
+                      {/* Corresp: Count treated / total */}
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {item.reconciliados.filter(t => t.tratado).length}/{item.resumo.totalReconciliado}
+                      </span>
                       <span className="text-xs ml-1 text-gray-400">({formatarMoeda(item.resumo.valorReconciliado)})</span>
                     </td>
                     <td className="px-6 py-4 text-yellow-600 dark:text-yellow-500">
-                      {item.resumo.totalApenasBanco} <span className="text-xs opacity-70">({formatarMoeda(item.resumo.valorApenasBanco)})</span>
+                      {/* Banco: Count treated / total */}
+                      <span className="font-bold">
+                        {item.apenasBanco.filter(t => t.tratado).length}/{item.resumo.totalApenasBanco}
+                      </span>
+                      <span className="text-xs opacity-70 ml-1">({formatarMoeda(item.resumo.valorApenasBanco)})</span>
                     </td>
                     <td className="px-6 py-4 text-orange-600 dark:text-orange-500">
-                      {item.resumo.totalApenasContabilidade} <span className="text-xs opacity-70">({formatarMoeda(item.resumo.valorApenasContabilidade)})</span>
+                      {/* PHC: Count treated / total */}
+                      <span className="font-bold">
+                        {item.apenasContabilidade.filter(t => t.tratado).length}/{item.resumo.totalApenasContabilidade}
+                      </span>
+                      <span className="text-xs opacity-70 ml-1">({formatarMoeda(item.resumo.valorApenasContabilidade)})</span>
                     </td>
                     <td className="px-6 py-4 text-right flex justify-end gap-2">
                       {item.id === editingId ? (

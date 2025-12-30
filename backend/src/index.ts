@@ -140,6 +140,108 @@ app.patch('/api/history/:id', async (req, res) => {
     }
 });
 
+// 5. AUTHENTICATION & USERS
+
+// Login
+app.post('/api/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const userRepo = AppDataSource.getRepository(User);
+
+        // Find user by email and password (PLAIN TEXT for now as requested)
+        const user = await userRepo.findOneBy({ email, password });
+
+        if (!user) {
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
+
+        // Return user info (excluding password)
+        res.json({
+            id: user.id,
+            nome: user.name,
+            email: user.email,
+            funcao: user.role
+        });
+    } catch (error) {
+        console.error("Login error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Get Users
+app.get('/api/users', async (req, res) => {
+    try {
+        const userRepo = AppDataSource.getRepository(User);
+        const users = await userRepo.find({
+            order: { name: 'ASC' }
+        });
+
+        // Return public user info
+        const safeUsers = users.map(u => ({
+            id: u.id,
+            nome: u.name,
+            email: u.email,
+            funcao: u.role
+        }));
+
+        res.json(safeUsers);
+    } catch (error) {
+        console.error("Get users error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Create User
+app.post('/api/users', async (req, res) => {
+    try {
+        const { nome, email, password, funcao } = req.body;
+
+        if (!nome || !email || !password) {
+            return res.status(400).json({ error: 'Campos obrigatórios em falta' });
+        }
+
+        const userRepo = AppDataSource.getRepository(User);
+
+        // Check if exists
+        const existing = await userRepo.findOneBy({ email });
+        if (existing) {
+            return res.status(409).json({ error: 'Email já registado' });
+        }
+
+        const newUser = new User();
+        newUser.name = nome;
+        newUser.email = email;
+        newUser.password = password; // Plain text per request context
+        newUser.role = funcao || 'utilizador';
+
+        await userRepo.save(newUser);
+
+        res.status(201).json({ message: 'Utilizador criado com sucesso' });
+    } catch (error) {
+        console.error("Create user error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Delete User
+app.delete('/api/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userRepo = AppDataSource.getRepository(User);
+
+        const result = await userRepo.delete(id);
+
+        if (result.affected === 0) {
+            return res.status(404).json({ error: 'Utilizador não encontrado' });
+        }
+
+        res.json({ message: 'Utilizador removido' });
+    } catch (error) {
+        console.error("Delete user error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 AppDataSource.initialize()
     .then(() => {
         console.log("Data Source has been initialized!");
