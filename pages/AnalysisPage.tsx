@@ -245,14 +245,7 @@ export const AnalysisPage: React.FC = () => {
             styles: { fontSize: 8 },
             alternateRowStyles: { fillColor: [245, 247, 250] },
             didDrawPage: (data) => {
-                // Footer
-                const pageSize = doc.internal.pageSize;
-                const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
-                doc.setFontSize(8);
-                doc.setTextColor(100);
-                const text = `Página ${data.pageNumber}`;
-                const textWidth = doc.getTextWidth(text);
-                doc.text(text, pageSize.width - 20 - textWidth, pageHeight - 10);
+                // Hook reserved for future use
             }
         });
 
