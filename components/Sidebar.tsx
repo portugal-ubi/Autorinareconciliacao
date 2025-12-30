@@ -22,10 +22,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ paginaAtual, onNavegar, isAdmi
     { pagina: Pagina.DASHBOARD, label: 'Painel', icon: <LayoutDashboard size={20} /> },
     { pagina: Pagina.UPLOAD, label: 'Importar Dados', icon: <FileText size={20} /> },
     { pagina: Pagina.VERIFICACAO, label: 'Verificação', icon: <PieChart size={20} /> },
-    { pagina: Pagina.NOVA_RECON, label: 'Reconciliar', icon: <FileText size={20} /> },
-    { pagina: Pagina.HISTORICO, label: 'Histórico', icon: <History size={20} /> },
     { pagina: Pagina.ANALISE, label: 'Análise Global', icon: <BarChart size={20} /> },
-    ...(paginaAtual === Pagina.RESULTADOS ? [{ pagina: Pagina.RESULTADOS, label: 'Resultados', icon: <PieChart size={20} /> }] : []),
     ...(isAdmin ? [{ pagina: Pagina.UTILIZADORES, label: 'Utilizadores', icon: <Users size={20} /> }] : []),
   ];
 
