@@ -20,6 +20,7 @@ export const AnalysisPage: React.FC = () => {
     // Local changes state: mapping ID -> boolean (true = tratado, false = nao tratado)
     // Only stores changes that differ from original
     const [alteracoes, setAlteracoes] = useState<Record<string, boolean>>({});
+
     // Notes state: mapping ID -> string (only stores changes)
     const [notas, setNotas] = useState<Record<string, string>>({});
 
@@ -48,47 +49,50 @@ export const AnalysisPage: React.FC = () => {
     const handleSave = async () => {
         if (!resultado) return;
 
-        const updates: { type: 'bank' | 'phc', id: string, val: boolean }[] = [];
+        // Collect all IDs that have changes
+        const changedIds = new Set([...Object.keys(alteracoes), ...Object.keys(notas)]);
+        const updatesBank: any[] = [];
+        const updatesPhc: any[] = [];
 
-        Object.entries(alteracoes).forEach(([id, val]) => {
+        changedIds.forEach(id => {
             // Check Reconciliados
             const isReconciliado = resultado.reconciliados.find(t => t.id === id);
             if (isReconciliado) {
-                // Determine if we need to update bank, phc or both.
-                // If the user checks the box (val=true), we treat BOTH.
-                // If uncheck, untreat BOTH.
-                updates.push({ type: 'bank', id: isReconciliado.bankId, val: val as boolean });
-                updates.push({ type: 'phc', id: isReconciliado.phcId, val: val as boolean });
+                // If matched, apply tratado change to both. Notes not supported for matched yet (UI hides it).
+                if (alteracoes.hasOwnProperty(id)) {
+                    const val = alteracoes[id];
+                    updatesBank.push({ id: isReconciliado.bankId, tratado: val });
+                    updatesPhc.push({ id: isReconciliado.phcId, tratado: val });
+                }
                 return;
             }
 
             // Check Apenas Banco
             const isBank = resultado.apenasBanco.find(t => t.id === id);
             if (isBank) {
-                updates.push({ type: 'bank', id, val: val as boolean });
+                const update: any = { id };
+                if (alteracoes.hasOwnProperty(id)) update.tratado = alteracoes[id];
+                if (notas.hasOwnProperty(id)) update.notas = notas[id];
+                updatesBank.push(update);
                 return;
             }
 
             // Check Apenas PHC
             const isPhc = resultado.apenasContabilidade.find(t => t.id === id);
             if (isPhc) {
-                updates.push({ type: 'phc', id, val: val as boolean });
+                const update: any = { id };
+                if (alteracoes.hasOwnProperty(id)) update.tratado = alteracoes[id];
+                if (notas.hasOwnProperty(id)) update.notas = notas[id];
+                updatesPhc.push(update);
                 return;
             }
         });
 
-        const bankTrue = updates.filter(u => u.type === 'bank' && u.val).map(u => u.id);
-        const bankFalse = updates.filter(u => u.type === 'bank' && !u.val).map(u => u.id);
-        const phcTrue = updates.filter(u => u.type === 'phc' && u.val).map(u => u.id);
-        const phcFalse = updates.filter(u => u.type === 'phc' && !u.val).map(u => u.id);
-
         setLoading(true);
         try {
             const requests = [];
-            if (bankTrue.length > 0) requests.push(fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'bank', ids: bankTrue, tratado: true }) }));
-            if (bankFalse.length > 0) requests.push(fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'bank', ids: bankFalse, tratado: false }) }));
-            if (phcTrue.length > 0) requests.push(fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'phc', ids: phcTrue, tratado: true }) }));
-            if (phcFalse.length > 0) requests.push(fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'phc', ids: phcFalse, tratado: false }) }));
+            if (updatesBank.length > 0) requests.push(fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'bank', items: updatesBank }) }));
+            if (updatesPhc.length > 0) requests.push(fetch('/api/transactions/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'phc', items: updatesPhc }) }));
 
             const responses = await Promise.all(requests);
 
@@ -156,17 +160,19 @@ export const AnalysisPage: React.FC = () => {
         }
 
         return list.filter(item => {
+            const itemNota = getNota(item).toLowerCase();
             const searchMatch = !termo ||
                 (item.descricao || item.descBanco || '').toLowerCase().includes(termo) ||
                 (item.descContabilidade || '').toLowerCase().includes(termo) ||
-                item.valor.toString().includes(termo);
+                item.valor.toString().includes(termo) ||
+                itemNota.includes(termo);
 
             const tratado = getTratadoStatus(item);
             if (!mostrarTratados && tratado) return false;
 
             return searchMatch;
         });
-    }, [resultado, abaAtiva, termoPesquisa, mostrarTratados, alteracoes]);
+    }, [resultado, abaAtiva, termoPesquisa, mostrarTratados, alteracoes, notas]);
 
     // Derived State for Pagination
     const totalItems = dadosCompletosFiltrados.length;
