@@ -236,7 +236,7 @@ export const AnalysisPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <Card className="flex flex-col h-[700px]">
+                    <Card className="flex flex-col h-[calc(100vh-250px)] min-h-[500px]">
                         {/* Tabs & Toolbar */}
                         <div className="flex flex-col xl:flex-row justify-between items-center border-b border-gray-200 dark:border-white/10 p-2 gap-4">
                             <div className="flex gap-2 bg-gray-100 dark:bg-black/20 p-1 rounded-lg overflow-x-auto max-w-full">

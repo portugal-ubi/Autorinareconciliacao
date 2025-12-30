@@ -112,7 +112,7 @@ export const transactionService = {
             data: typeof item.data === 'string' ? item.data : item.data.toISOString().split('T')[0],
             descricao: item.descricao,
             valor: Number(item.valor),
-            tratado: false,
+            tratado: !!item.tratado, // Fix: Use value from DB
             originalRow: item
         });
 
