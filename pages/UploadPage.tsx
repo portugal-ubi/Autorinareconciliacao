@@ -29,6 +29,26 @@ export const UploadPage: React.FC = () => {
         }
     };
 
+    const handleReset = async () => {
+        if (!confirm("TEM A CERTEZA? Isto irá APAGAR TODOS OS DADOS de transações e histórico.\n\nEsta ação é irreversível.")) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch('/api/admin/reset', { method: 'DELETE' });
+            if (res.ok) {
+                alert("Base de dados limpa com sucesso.");
+                fetchStatus(); // Refresh status (should be zero/empty)
+            } else {
+                alert("Erro ao limpar base de dados.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Erro de comunicação.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'bank' | 'phc') => {
         if (!e.target.files || !e.target.files[0]) return;
 
@@ -142,6 +162,22 @@ export const UploadPage: React.FC = () => {
                     <span>{message.text}</span>
                 </div>
             )}
+
+            <div className="pt-8 border-t border-gray-200 dark:border-white/10">
+                <h3 className="text-lg font-bold text-red-600 dark:text-red-400 mb-2">Zona de Perigo</h3>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                    Esta ação apagará <strong>TODOS</strong> os dados de transações (Banco e PHC) e todo o histórico de reconciliações.
+                    <br />
+                    Não é possível desfazer esta ação.
+                </p>
+                <button
+                    onClick={handleReset}
+                    className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/20 dark:hover:bg-red-900/30 dark:text-red-300 rounded-md font-medium transition-colors flex items-center gap-2"
+                >
+                    <AlertCircle size={18} />
+                    Limpar Base de Dados
+                </button>
+            </div>
         </div>
     );
 };

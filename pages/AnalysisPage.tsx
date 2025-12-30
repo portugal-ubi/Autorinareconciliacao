@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { BarChart, Search, Save, CheckSquare, Square, Filter } from 'lucide-react';
+import { BarChart, Search, Save, CheckSquare, Square, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ResultadoReconciliacao, Transacao, TransacaoCorrespondida } from '../types';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
@@ -12,6 +12,10 @@ export const AnalysisPage: React.FC = () => {
     const [endDate, setEndDate] = useState(new Date().getFullYear() + '-12-31');
     const [loading, setLoading] = useState(false);
     const [resultado, setResultado] = useState<ResultadoReconciliacao | null>(null);
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(50);
 
     // Local changes state: mapping ID -> boolean (true = tratado, false = nao tratado)
     // Only stores changes that differ from original
@@ -28,6 +32,7 @@ export const AnalysisPage: React.FC = () => {
             const data = await res.json();
             setResultado(data);
             setAlteracoes({}); // Reset changes on new analysis
+            setCurrentPage(1); // Reset to page 1
         } catch (error) {
             console.error("Error analyzing:", error);
             alert("Erro ao gerar análise.");
@@ -112,7 +117,7 @@ export const AnalysisPage: React.FC = () => {
     const formatarMoeda = (val: number) =>
         new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(val);
 
-    const dadosFiltrados = useMemo(() => {
+    const dadosCompletosFiltrados = useMemo(() => {
         if (!resultado) return [];
         const termo = termoPesquisa.toLowerCase();
         let list: any[] = [];
@@ -134,6 +139,20 @@ export const AnalysisPage: React.FC = () => {
             return searchMatch;
         });
     }, [resultado, abaAtiva, termoPesquisa]);
+
+    // Derived State for Pagination
+    const totalItems = dadosCompletosFiltrados.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const paginatedData = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return dadosCompletosFiltrados.slice(start, start + itemsPerPage);
+    }, [dadosCompletosFiltrados, currentPage, itemsPerPage]);
+
+    // Reset page when filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [abaAtiva, termoPesquisa, itemsPerPage]);
+
 
     // Counters
     const stats = useMemo(() => {
@@ -219,29 +238,63 @@ export const AnalysisPage: React.FC = () => {
 
                     <Card className="flex flex-col h-[700px]">
                         {/* Tabs & Toolbar */}
-                        <div className="flex flex-col md:flex-row justify-between items-center border-b border-gray-200 dark:border-white/10 p-2 gap-4">
-                            <div className="flex gap-2 bg-gray-100 dark:bg-black/20 p-1 rounded-lg">
+                        <div className="flex flex-col xl:flex-row justify-between items-center border-b border-gray-200 dark:border-white/10 p-2 gap-4">
+                            <div className="flex gap-2 bg-gray-100 dark:bg-black/20 p-1 rounded-lg overflow-x-auto max-w-full">
                                 <button
                                     onClick={() => { setAbaAtiva('correspondidos'); setTermoPesquisa(''); }}
-                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${abaAtiva === 'correspondidos' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap ${abaAtiva === 'correspondidos' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
                                 >
                                     Correspondidos
                                 </button>
                                 <button
                                     onClick={() => { setAbaAtiva('banco'); setTermoPesquisa(''); }}
-                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${abaAtiva === 'banco' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap ${abaAtiva === 'banco' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
                                 >
                                     Falta Banco
                                 </button>
                                 <button
                                     onClick={() => { setAbaAtiva('contabilidade'); setTermoPesquisa(''); }}
-                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${abaAtiva === 'contabilidade' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all whitespace-nowrap ${abaAtiva === 'contabilidade' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
                                 >
                                     Falta PHC
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-4 w-full md:w-auto">
+                            <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto justify-end">
+                                {/* Pagination Controls */}
+                                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                                    <span className="hidden sm:inline">Mostrar:</span>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                        className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-md px-2 py-1 focus:ring-[#e82127] focus:border-[#e82127]"
+                                    >
+                                        <option value={20}>20</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors"
+                                    >
+                                        <ChevronLeft size={18} />
+                                    </button>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[3ch] text-center">
+                                        {currentPage} / {totalPages || 1}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage >= totalPages}
+                                        className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-white/10 disabled:opacity-30 transition-colors"
+                                    >
+                                        <ChevronRight size={18} />
+                                    </button>
+                                </div>
+
                                 <div className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-white/5 px-3 py-1.5 rounded-md border border-gray-200 dark:border-white/5 whitespace-nowrap">
                                     <span className="font-semibold text-gray-900 dark:text-white">{stats.tratado}</span>
                                     <span className="mx-1">/</span>
@@ -286,8 +339,8 @@ export const AnalysisPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-white/5">
-                                    {dadosFiltrados.length > 0 ? (
-                                        dadosFiltrados.map((item: any) => {
+                                    {paginatedData.length > 0 ? (
+                                        paginatedData.map((item: any) => {
                                             const tratado = getTratadoStatus(item);
                                             return (
                                                 <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors ${tratado ? 'bg-green-50/50 dark:bg-green-900/5' : ''}`}>

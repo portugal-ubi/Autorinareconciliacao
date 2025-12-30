@@ -346,6 +346,30 @@ app.post('/api/transactions/status', async (req, res) => {
     }
 });
 
+    } catch (error) {
+    console.error("Status update error:", error);
+    res.status(500).json({ error: 'Internal server error' });
+}
+});
+
+// Admin: Reset Database
+app.delete('/api/admin/reset', async (req, res) => {
+    try {
+        const bankRepo = AppDataSource.getRepository(BankTransaction);
+        const phcRepo = AppDataSource.getRepository(PhcTransaction);
+        const reconRepo = AppDataSource.getRepository(Reconciliation);
+
+        await bankRepo.clear();
+        await phcRepo.clear();
+        await reconRepo.clear();
+
+        res.json({ message: 'Database reset successfully' });
+    } catch (error) {
+        console.error("Reset error:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
 AppDataSource.initialize()
     .then(async () => {
         console.log("Data Source has been initialized!");
