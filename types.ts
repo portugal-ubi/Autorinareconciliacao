@@ -39,6 +39,7 @@ export interface ResultadoReconciliacao {
   };
   carimboTempo: string;
   tratado: boolean; // Estado geral da reconciliação
+  nome?: string; // Nome personalizado para identificação
 }
 
 export enum Pagina {

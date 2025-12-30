@@ -8,13 +8,26 @@ import { ResultsPage } from './pages/ResultsPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
-import { gerarHistoricoInicial } from './services/reconciliationService';
+import { gerarHistoricoInicial, obterHistorico, apagarReconciliacao, atualizarNomeReconciliacao } from './services/reconciliationService';
+import { useEffect } from 'react';
 
 const App: React.FC = () => {
   const [utilizadorAtual, setUtilizadorAtual] = useState<Utilizador | null>(null);
   const [paginaAtual, setPaginaAtual] = useState<Pagina>(Pagina.LOGIN);
   const [resultadoAtual, setResultadoAtual] = useState<ResultadoReconciliacao | null>(null);
-  const [historicoReconciliacoes, setHistoricoReconciliacoes] = useState<ResultadoReconciliacao[]>(gerarHistoricoInicial());
+  const [historicoReconciliacoes, setHistoricoReconciliacoes] = useState<ResultadoReconciliacao[]>([]);
+
+  // Carregar histórico ao iniciar
+  useEffect(() => {
+    if (utilizadorAtual) {
+      carregarHistorico();
+    }
+  }, [utilizadorAtual]);
+
+  const carregarHistorico = async () => {
+    const dados = await obterHistorico();
+    setHistoricoReconciliacoes(dados);
+  };
 
   const handleLogin = (user: Utilizador) => {
     setUtilizadorAtual(user);
@@ -29,8 +42,8 @@ const App: React.FC = () => {
 
   const handleReconciliacaoCompleta = (resultado: ResultadoReconciliacao) => {
     setResultadoAtual(resultado);
-    // Adicionar ao início do histórico
-    setHistoricoReconciliacoes(prev => [resultado, ...prev]);
+    // Atualizar histórico após nova reconciliação
+    carregarHistorico();
     setPaginaAtual(Pagina.RESULTADOS);
   };
 
@@ -40,18 +53,35 @@ const App: React.FC = () => {
   };
 
   const handleToggleTratadoGlobal = (id: string) => {
-    setHistoricoReconciliacoes(prev => prev.map(item => 
+    setHistoricoReconciliacoes(prev => prev.map(item =>
       item.id === id ? { ...item, tratado: !item.tratado } : item
     ));
+    // TODO: Persistir estado 'tratado' no backend se necessário (PUT /api/history/:id)
+  };
+
+  const handleApagarHistorico = async (id: string) => {
+    try {
+      await apagarReconciliacao(id);
+      await carregarHistorico(); // Recarregar lista
+    } catch (e) {
+      alert('Erro ao apagar registo.');
+    }
+  };
+
+  const handleAtualizarNome = async (id: string, nome: string) => {
+    try {
+      await atualizarNomeReconciliacao(id, nome);
+      await carregarHistorico();
+    } catch (e) {
+      alert('Erro ao atualizar nome.');
+    }
   };
 
   const handleGuardarAlteracoesResultado = (resultadoAtualizado: ResultadoReconciliacao) => {
-    // Atualiza o histórico global com os novos vistos (checkmarks)
-    setHistoricoReconciliacoes(prev => prev.map(item => 
-        item.id === resultadoAtualizado.id ? resultadoAtualizado : item
+    setHistoricoReconciliacoes(prev => prev.map(item =>
+      item.id === resultadoAtualizado.id ? resultadoAtualizado : item
     ));
     setResultadoAtual(resultadoAtualizado);
-    // Feedback visual poderia ser adicionado aqui (toast notification)
   };
 
   // Renderizar conteúdo baseado no estado da página
@@ -63,8 +93,8 @@ const App: React.FC = () => {
     switch (paginaAtual) {
       case Pagina.DASHBOARD:
         return (
-          <DashboardPage 
-            onVerNovaRecon={() => setPaginaAtual(Pagina.NOVA_RECON)} 
+          <DashboardPage
+            onVerNovaRecon={() => setPaginaAtual(Pagina.NOVA_RECON)}
             historicoRecente={historicoReconciliacoes}
             onSelecionarHistorico={handleSelecionarHistorico}
           />
@@ -75,13 +105,13 @@ const App: React.FC = () => {
         return <NewReconciliationPage onConcluir={handleReconciliacaoCompleta} />;
       case Pagina.RESULTADOS:
         return resultadoAtual ? (
-          <ResultsPage 
-            resultado={resultadoAtual} 
-            onVoltar={() => setPaginaAtual(Pagina.HISTORICO)} 
+          <ResultsPage
+            resultado={resultadoAtual}
+            onVoltar={() => setPaginaAtual(Pagina.HISTORICO)}
             onGuardar={handleGuardarAlteracoesResultado}
           />
         ) : (
-          <DashboardPage 
+          <DashboardPage
             onVerNovaRecon={() => setPaginaAtual(Pagina.NOVA_RECON)}
             historicoRecente={historicoReconciliacoes}
             onSelecionarHistorico={handleSelecionarHistorico}
@@ -89,15 +119,17 @@ const App: React.FC = () => {
         );
       case Pagina.HISTORICO:
         return (
-          <HistoryPage 
+          <HistoryPage
             historico={historicoReconciliacoes}
             onSelecionarHistorico={handleSelecionarHistorico}
             onToggleTratado={handleToggleTratadoGlobal}
+            onApagar={handleApagarHistorico}
+            onAtualizarNome={handleAtualizarNome}
           />
         );
       default:
         return (
-          <DashboardPage 
+          <DashboardPage
             onVerNovaRecon={() => setPaginaAtual(Pagina.NOVA_RECON)}
             historicoRecente={historicoReconciliacoes}
             onSelecionarHistorico={handleSelecionarHistorico}
@@ -112,10 +144,10 @@ const App: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-[#0a0a0a] text-gray-900 dark:text-white overflow-hidden transition-colors duration-200">
-      <Sidebar 
-        paginaAtual={paginaAtual} 
-        onNavegar={setPaginaAtual} 
-        isAdmin={utilizadorAtual.funcao === 'admin'} 
+      <Sidebar
+        paginaAtual={paginaAtual}
+        onNavegar={setPaginaAtual}
+        isAdmin={utilizadorAtual.funcao === 'admin'}
         onLogout={handleLogout}
       />
       <div className="flex-1 flex flex-col h-screen overflow-hidden">

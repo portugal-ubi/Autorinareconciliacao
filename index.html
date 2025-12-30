@@ -1,51 +1,58 @@
 <!DOCTYPE html>
 <html lang="pt" class="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Recon Auto Rina</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              tesla: {
-                red: '#e82127',
-                dark: '#0a0a0a',
-                card: '#18181b',
-              }
-            },
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recon Auto Rina V2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            tesla: {
+              red: '#e82127',
+              dark: '#0a0a0a',
+              card: '#18181b',
             }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
           }
         }
       }
-    </script>
-    <style>
-      /* Custom scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1; 
-        border-radius: 4px;
-      }
-      .dark ::-webkit-scrollbar-thumb {
-        background: #333;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #e82127; 
-      }
-    </style>
-  <body class="bg-gray-50 text-gray-900 dark:bg-[#0a0a0a] dark:text-white transition-colors duration-200">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+    }
+  </script>
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    .dark ::-webkit-scrollbar-thumb {
+      background: #333;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #e82127;
+    }
+  </style>
+
+<body class="bg-gray-50 text-gray-900 dark:bg-[#0a0a0a] dark:text-white transition-colors duration-200">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>
