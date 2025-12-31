@@ -37,30 +37,115 @@ export const parseExcel = (buffer: Buffer): Transacao[] => {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
-    const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+
+    // Convert to array of arrays to inspect structure first
+    const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+    // Detect format
+    let headerRowIndex = 0;
+    let type = 'generic'; // 'generic', 'bank_novo', 'phc_novo'
+
+
+    // Look for Bank specific headers
+    for (let i = 0; i < Math.min(10, rawData.length); i++) {
+        const rowStr = JSON.stringify(rawData[i]);
+        if (rowStr.includes('Data de Movimento') && rowStr.includes('Montante')) {
+            headerRowIndex = i;
+            type = 'bank_novo';
+            break;
+        }
+        // PHC Detection (Dezembro.xlsx)
+        // Headers: "Documento", "Data      ", "Saldo               " (lots of whitespace)
+        // We look for 'Saldo' and 'Data' roughly
+        if (rowStr.includes('Saldo') && rowStr.includes('Data') && rowStr.includes('Documento')) {
+            headerRowIndex = i;
+            type = 'phc_dezembro';
+            break;
+        }
+    }
+
+    const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet, { raw: false, range: headerRowIndex });
 
     return jsonData.map((row, index) => {
-        let data = row['Data'] || row['Date'] || row['Movimento'] || row['data'] || new Date().toISOString();
-        const descricao = row['Descrição'] || row['Descricao'] || row['Description'] || row['Histórico'] || row['Historico'] || 'Sem descrição';
+        let data = '';
+        let descricao = 'Sem descrição';
         let valor: number = 0;
 
-        if (row['Valor'] !== undefined) valor = cleanValue(row['Valor']);
-        else if (row['Amount'] !== undefined) valor = cleanValue(row['Amount']);
-        else if (row['Montante'] !== undefined) valor = cleanValue(row['Montante']);
-        else {
-            const debito = row['Débito'] || row['Debito'] || row['Debit'] || 0;
-            const credito = row['Crédito'] || row['Credito'] || row['Credit'] || 0;
-            valor = cleanValue(credito) - cleanValue(debito);
-            if (valor === 0 && (debito !== 0 || credito !== 0)) {
-                valor = cleanValue(credito) || (cleanValue(debito) * -1);
+        // Clean keys for PHC (trim whitespace)
+        if (type === 'phc_dezembro') {
+            const cleanRow: any = {};
+            Object.keys(row).forEach(k => {
+                cleanRow[k.trim()] = row[k];
+            });
+
+            // Map PHC fields
+            // Data format: 02.01.2025
+            data = cleanRow['Data'] || '';
+            const desc = cleanRow['Descricao'] || cleanRow['Descrição'] || '';
+            const motivo = cleanRow['Movimento'] || ''; // e.g. "Talão de Depósito"
+
+            // Combine fields for better description
+            descricao = `${motivo} ${desc}`.trim();
+            if (descricao === '') descricao = 'Sem descrição';
+
+            // Value is in 'Saldo'
+            valor = cleanValue(cleanRow['Saldo']);
+
+        } else if (type === 'bank_novo') {
+            // Bank Format: Data de Movimento | Descrição | Montante | D/C
+            data = row['Data de Movimento'] || new Date().toISOString();
+            descricao = row['Descrição'] || 'Sem descrição';
+
+            let rawVal = cleanValue(row['Montante']);
+            const dc = row['D/C'];
+            if (dc === 'D') {
+                valor = -Math.abs(rawVal);
+            } else {
+                valor = Math.abs(rawVal);
+            }
+        } else {
+            // Generic / Legacy Logic
+            // PHC often has 'Entidade' which is better than 'Descrição'
+            data = row['Data'] || row['Date'] || row['Movimento'] || row['data'] || new Date().toISOString();
+
+            const desc = row['Descrição'] || row['Descricao'] || row['Description'] || row['Histórico'] || row['Historico'];
+            const entidade = row['Entidade'];
+
+            if (entidade) {
+                descricao = `${entidade} ${desc ? '(' + desc + ')' : ''}`.trim();
+            } else {
+                descricao = desc || 'Sem descrição';
+            }
+
+            if (row['Valor'] !== undefined) valor = cleanValue(row['Valor']);
+            else if (row['Amount'] !== undefined) valor = cleanValue(row['Amount']);
+            else if (row['Montante'] !== undefined) valor = cleanValue(row['Montante']);
+            else {
+                const debito = row['Débito'] || row['Debito'] || row['Debit'] || 0;
+                const credito = row['Crédito'] || row['Credito'] || row['Credit'] || 0;
+                valor = cleanValue(credito) - cleanValue(debito);
+                if (valor === 0 && (debito !== 0 || credito !== 0)) {
+                    valor = cleanValue(credito) || (cleanValue(debito) * -1);
+                }
             }
         }
 
-        // Normalize Date
+        // Normalize Date (DD.MM.YYYY handling)
         try {
-            if (typeof data === 'string' && data.includes('/')) {
-                const parts = data.split('/');
-                if (parts.length === 3) data = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            if (typeof data === 'string') {
+                data = data.trim();
+                if (data.includes('/')) {
+                    const parts = data.split('/');
+                    if (parts.length === 3) {
+                        data = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                    }
+                } else if (data.includes('.')) {
+                    // Check for DD.MM.YYYY
+                    const parts = data.split('.');
+                    if (parts.length === 3) {
+                        data = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                    }
+                }
             }
             const dateObj = new Date(data);
             if (!isNaN(dateObj.getTime())) data = dateObj.toISOString().split('T')[0];
@@ -69,7 +154,7 @@ export const parseExcel = (buffer: Buffer): Transacao[] => {
         return {
             id: `row-${index}-${Math.random().toString(36).substr(2, 5)}`,
             data: data,
-            descricao: String(descricao),
+            descricao: String(descricao).trim(),
             valor: Number(valor),
             tratado: false,
             originalRow: row
