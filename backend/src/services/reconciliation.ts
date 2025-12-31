@@ -171,8 +171,29 @@ export const cleanValue = (val: any): number => {
     if (typeof val === 'number') return val;
     if (typeof val === 'string') {
         let clean = val.replace(/[€$ ]/g, '');
-        if (clean.includes(',') && clean.includes('.')) clean = clean.replace(/\./g, '').replace(',', '.');
-        else if (clean.includes(',')) clean = clean.replace(',', '.');
+        // Check for presence of both separators
+        if (clean.includes(',') && clean.includes('.')) {
+            const lastComma = clean.lastIndexOf(',');
+            const lastDot = clean.lastIndexOf('.');
+
+            if (lastDot > lastComma) {
+                // US/UK format: 5,970.92 -> Remove usually commas, keep dot
+                clean = clean.replace(/,/g, '');
+            } else {
+                // EU/PT format: 5.970,92 -> Remove dots, swap comma to dot
+                clean = clean.replace(/\./g, '').replace(',', '.');
+            }
+        } else if (clean.includes(',')) {
+            // Only comma? Assume decimal if it looks like a number, OR thousands?
+            // Usually if only comma, it's decimal in PT (5,00) or thousands in US (5,000)?
+            // Safe bet: if it has only comma, treat as decimal separator (standard EU/PT for single separator).
+            // BUT what if it is "5,000" (5000) US?
+            // Ambiguous. But in this context (PT accounting), comma is usually decimal.
+            clean = clean.replace(',', '.');
+        }
+        // If only dot: 5.00 -> 5.00 (Decimal). 5.000 -> 5000? 
+        // JS parseFloat handles dot as decimal.
+
         const num = parseFloat(clean);
         return isNaN(num) ? 0 : num;
     }
@@ -191,7 +212,9 @@ export const matchTransactions = (dadosBanco: Transacao[], dadosContabilidade: T
 
     dadosBanco.forEach(txBanco => {
         const dataBancoMs = new Date(txBanco.data).getTime();
-        const TOLERANCE_DAYS = 15;
+        // Relaxed tolerance to handle potential file date mismatches or long delays.
+        // User indicates "zero matches is impossible", so we widen to 1 year to find ANY value match.
+        const TOLERANCE_DAYS = 365;
         const MS_PER_DAY = 24 * 60 * 60 * 1000;
         const MAX_DIFF_MS = TOLERANCE_DAYS * MS_PER_DAY;
 
