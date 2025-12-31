@@ -62,11 +62,23 @@ export const AnalysisPage: React.FC = () => {
             const isReconciliado = resultado.reconciliados.find(t => t.id === id);
             if (isReconciliado) {
                 // If matched, apply tratado change to both. Notes not supported for matched yet (UI hides it).
+                const updateBank: any = { id: isReconciliado.bankId };
+                const updatePhc: any = { id: isReconciliado.phcId };
+
                 if (alteracoes.hasOwnProperty(id)) {
                     const val = alteracoes[id];
-                    updatesBank.push({ id: isReconciliado.bankId, tratado: val });
-                    updatesPhc.push({ id: isReconciliado.phcId, tratado: val });
+                    updateBank.tratado = val;
+                    updatePhc.tratado = val;
                 }
+
+                if (notas.hasOwnProperty(id)) {
+                    const val = notas[id];
+                    updateBank.notas = val;
+                    updatePhc.notas = val;
+                }
+
+                if (updateBank.tratado !== undefined || updateBank.notas !== undefined) updatesBank.push(updateBank);
+                if (updatePhc.tratado !== undefined || updatePhc.notas !== undefined) updatesPhc.push(updatePhc);
                 return;
             }
 
@@ -161,9 +173,12 @@ export const AnalysisPage: React.FC = () => {
             if (abaAtiva === 'correspondidos') {
                 return {
                     ...base,
+                    'Valor': item.valor,
                     'Data Banco': item.dataBanco,
                     'Desc Banco': item.descBanco,
-                    'Desc PHC': item.descContabilidade
+                    'Data PHC': item.dataContabilidade,
+                    'Desc PHC': item.descContabilidade,
+                    'Notas': getNota(item)
                 };
             } else {
                 return {
@@ -218,11 +233,14 @@ export const AnalysisPage: React.FC = () => {
         const body = [];
 
         if (abaAtiva === 'correspondidos') {
-            head.push(['Data', 'Desc Banco', 'Desc PHC', 'Valor', 'Estado']);
+            head.push(['Valor', 'Data Banco', 'Desc Banco', 'Data PHC', 'Desc PHC', 'Notas', 'Estado']);
             body.push(...dadosCompletosFiltrados.map(item => [
+                formatarMoeda(item.valor),
                 item.dataBanco,
                 item.descBanco,
+                item.dataContabilidade,
                 item.descContabilidade,
+                getNota(item),
                 formatarMoeda(item.valor),
                 getTratadoStatus(item) ? 'Tratado' : ''
             ]));
@@ -527,9 +545,11 @@ export const AnalysisPage: React.FC = () => {
                                         {abaAtiva === 'correspondidos' ? (
                                             <>
                                                 <th className="px-4 py-3">Valor</th>
-                                                <th className="px-4 py-3">Data</th>
+                                                <th className="px-4 py-3">Data Banco</th>
                                                 <th className="px-4 py-3">Desc Banco</th>
+                                                <th className="px-4 py-3">Data PHC</th>
                                                 <th className="px-4 py-3">Desc PHC</th>
+                                                <th className="px-4 py-3">Notas</th>
                                             </>
                                         ) : (
                                             <>
@@ -560,7 +580,17 @@ export const AnalysisPage: React.FC = () => {
                                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{formatarMoeda(item.valor)}</td>
                                                             <td className="px-4 py-3 text-xs">{item.dataBanco}</td>
                                                             <td className="px-4 py-3 truncate max-w-[200px] text-xs" title={item.descBanco}>{item.descBanco}</td>
+                                                            <td className="px-4 py-3 text-xs">{item.dataContabilidade}</td>
                                                             <td className="px-4 py-3 truncate max-w-[200px] text-xs" title={item.descContabilidade}>{item.descContabilidade}</td>
+                                                            <td className="px-4 py-3">
+                                                                <input
+                                                                    type="text"
+                                                                    value={getNota(item)}
+                                                                    onChange={(e) => handleNoteChange(item.id, e.target.value)}
+                                                                    placeholder="Adicionar nota..."
+                                                                    className="w-full bg-transparent border-b border-transparent hover:border-gray-200 focus:border-[#e82127] text-xs py-1 px-2 focus:outline-none transition-colors"
+                                                                />
+                                                            </td>
                                                         </>
                                                     ) : (
                                                         <>
@@ -583,7 +613,7 @@ export const AnalysisPage: React.FC = () => {
                                         })
                                     ) : (
                                         <tr>
-                                            <td colSpan={abaAtiva === 'correspondidos' ? 5 : 4} className="py-12 text-center text-gray-400 dark:text-gray-600">
+                                            <td colSpan={abaAtiva === 'correspondidos' ? 7 : 5} className="py-12 text-center text-gray-400 dark:text-gray-600">
                                                 Nenhum registo encontrado.
                                             </td>
                                         </tr>

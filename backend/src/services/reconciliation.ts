@@ -20,12 +20,12 @@ interface TransacaoCorrespondida {
     descBanco: string;
     descContabilidade: string;
     tratado: boolean;
-    notas?: string; // Should we have separate notes for bank/phc? Probably yes, or merged. Let's keep it simple for now, maybe just bank notes? User asked for notes in "Falta Banco" and "Falta PHC" specifically.
+    notas?: string;
 }
 
 interface ResultadoReconciliacao {
     id: string;
-    reconciliados: TransacaoCorrespondida[]; // Reconciled usually don't need notes as per user request ("Falta Banco" and "Falta PHC")
+    reconciliados: TransacaoCorrespondida[];
     apenasBanco: Transacao[];
     apenasContabilidade: Transacao[];
     resumo: any;
@@ -134,7 +134,8 @@ export const matchTransactions = (dadosBanco: Transacao[], dadosContabilidade: T
                 dataContabilidade: melhorMatch.tx.data,
                 descBanco: txBanco.descricao,
                 descContabilidade: melhorMatch.tx.descricao,
-                tratado: txBanco.tratado && melhorMatch.tx.tratado
+                tratado: txBanco.tratado && melhorMatch.tx.tratado,
+                notas: txBanco.notas || melhorMatch.tx.notas // Prefer bank note, fallback to PHC
             });
 
             // Remove matched item from pool using original reference/index

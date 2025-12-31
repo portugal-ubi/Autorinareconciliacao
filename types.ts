@@ -21,7 +21,8 @@ export interface TransacaoCorrespondida {
   dataContabilidade: string;
   descBanco: string;
   descContabilidade: string;
-  tratado?: boolean; // Novo: controlo individual
+  tratado?: boolean;
+  notas?: string;
 }
 
 export interface ResultadoReconciliacao {
