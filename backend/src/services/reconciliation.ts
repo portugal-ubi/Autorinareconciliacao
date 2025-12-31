@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 
-interface Transacao {
+export interface Transacao {
     id: string;
     data: string;
     descricao: string;
@@ -151,6 +151,11 @@ export const parseExcel = (buffer: Buffer): Transacao[] => {
             if (!isNaN(dateObj.getTime())) data = dateObj.toISOString().split('T')[0];
         } catch (e) { /* ignore */ }
 
+        // Final validation
+        if (!data || data.trim() === '' || data.includes('.  .')) return null;
+        const finalDate = new Date(data);
+        if (isNaN(finalDate.getTime())) return null;
+
         return {
             id: `row-${index}-${Math.random().toString(36).substr(2, 5)}`,
             data: data,
@@ -159,7 +164,7 @@ export const parseExcel = (buffer: Buffer): Transacao[] => {
             tratado: false,
             originalRow: row
         };
-    }).filter(t => t.valor !== 0);
+    }).filter(t => t !== null && t.valor !== 0) as Transacao[];
 };
 
 export const cleanValue = (val: any): number => {
@@ -185,23 +190,44 @@ export const matchTransactions = (dadosBanco: Transacao[], dadosContabilidade: T
     poolContabilidade.sort(sortDate);
 
     dadosBanco.forEach(txBanco => {
-        // 1. Exact Match Check (+/- 0.01 tolerance)
+        const dataBancoMs = new Date(txBanco.data).getTime();
+        const TOLERANCE_DAYS = 15;
+        const MS_PER_DAY = 24 * 60 * 60 * 1000;
+        const MAX_DIFF_MS = TOLERANCE_DAYS * MS_PER_DAY;
+
+        // 1. Exact Value Match (+/- 0.01) AND Date Tolerance
         let candidatos = poolContabilidade
             .map((tx, index) => ({ tx, index }))
-            .filter(item => Math.abs(item.tx.valor - txBanco.valor) < 0.01);
+            .filter(item => {
+                const valMatch = Math.abs(item.tx.valor - txBanco.valor) < 0.01;
+                if (!valMatch) return false;
 
-        // 2. Robust Absolute Value Check (If no exact match found)
+                const dataPhcMs = new Date(item.tx.data).getTime();
+                const diffMs = Math.abs(dataPhcMs - dataBancoMs);
+                return diffMs <= MAX_DIFF_MS;
+            });
+
+        // 2. Fallback: Absolute Value Match? 
+        // Only if exact match failed. But be careful. 
+        // If the bank has -100 and PHC has 100, is it a match? 
+        // Usually NO, unless it's a correction. 
+        // Let's REMOVE the absolute value fallback 
+        // or make it very specific (maybe user wants it?). 
+        // Given user complaint about "bad calculation", let's be stricter.
+        // If they want to match signs reversed, they usually explicitly ask.
+        // I will commented out the absolute fallback for now or remove it.
+
+        /* 
         if (candidatos.length === 0) {
-            candidatos = poolContabilidade
-                .map((tx, index) => ({ tx, index }))
-                .filter(item => Math.abs(Math.abs(item.tx.valor) - Math.abs(txBanco.valor)) < 0.01);
-        }
+           // Old logic checked Math.abs(abs(a) - abs(b)).
+           // This implies -100 matches 100. This is risky.
+        } 
+        */
 
         if (candidatos.length > 0) {
             // Tie-breaker: Date proximity
             let melhorMatch = candidatos[0];
             if (candidatos.length > 1) {
-                const dataBancoMs = new Date(txBanco.data).getTime();
                 candidatos.sort((a, b) => {
                     const diffA = Math.abs(new Date(a.tx.data).getTime() - dataBancoMs);
                     const diffB = Math.abs(new Date(b.tx.data).getTime() - dataBancoMs);
@@ -220,10 +246,10 @@ export const matchTransactions = (dadosBanco: Transacao[], dadosContabilidade: T
                 descBanco: txBanco.descricao,
                 descContabilidade: melhorMatch.tx.descricao,
                 tratado: txBanco.tratado && melhorMatch.tx.tratado,
-                notas: txBanco.notas || melhorMatch.tx.notas // Prefer bank note, fallback to PHC
+                notas: txBanco.notas || melhorMatch.tx.notas
             });
 
-            // Remove matched item from pool using original reference/index
+            // Remove matched item from pool
             const indexReal = poolContabilidade.indexOf(melhorMatch.tx);
             if (indexReal > -1) poolContabilidade.splice(indexReal, 1);
         } else {
